@@ -1,5 +1,5 @@
 { stdenv, fetchurl, pkgconfig, intltool, dbus_glib, gdk_pixbuf, curl, freetype,
-libgsf, poppler, bzip2 }:
+libgsf, poppler, bzip2, ffmpegthumbnailer, gst_all_1 }:
 
 stdenv.mkDerivation rec {
   p_name  = "tumbler";
@@ -13,15 +13,12 @@ stdenv.mkDerivation rec {
   name = "${p_name}-${ver_maj}.${ver_min}";
 
   buildInputs = [ pkgconfig intltool dbus_glib gdk_pixbuf curl freetype
-    poppler libgsf bzip2];
+    poppler libgsf bzip2 ffmpegthumbnailer
+    gst_all_1.gstreamer gst_all_1.gst-plugins-base ];
 
   configureFlags = [
-    # Needs gst-tag
-    # "--enable-gstreamer-thumbnailer"
-
-    # Needs libffmpegthumbnailer
-    # "--enable-ffmpeg-thumbnailer"
-    
+    "--enable-gstreamer-thumbnailer"
+    "--enable-ffmpeg-thumbnailer"
     "--enable-odf-thumbnailer"
     "--enable-poppler-thumbnailer"
   ];
