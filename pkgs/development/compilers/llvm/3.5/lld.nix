@@ -3,7 +3,7 @@
 stdenv.mkDerivation {
   name = "lld-${version}";
 
-  src = fetch "lld" "1sd4scqynryfrmcc4h0ljgwn2dgjmbbmf38z50ya6l0janpd2nxx";
+  src = fetch "lld" "1hpqawg1sc8mdqxqaxqmlzbrn69w1pkj8rxhjgqgmwra6c0xky89";
 
   preUnpack = ''
     # !!! Hopefully won't be needed for 3.5
@@ -14,7 +14,6 @@ stdenv.mkDerivation {
   buildInputs = [ cmake ncurses zlib python ];
 
   cmakeFlags = [
-    "-DCMAKE_BUILD_TYPE=Release"
     "-DCMAKE_CXX_FLAGS=-std=c++11"
     "-DLLD_PATH_TO_LLVM_BUILD=${llvm}"
   ];
@@ -24,8 +23,7 @@ stdenv.mkDerivation {
   meta = {
     description = "A set of modular code for creating linker tools";
     homepage    = http://llvm.org/;
-    license     = stdenv.lib.licenses.bsd3;
-    maintainers = [ stdenv.lib.maintainers.shlevy ];
+    license     = stdenv.lib.licenses.ncsa;
     platforms   = stdenv.lib.platforms.all;
   };
 }

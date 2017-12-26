@@ -1,31 +1,46 @@
-{stdenv, fetchurl, python3Packages}:
+{ stdenv, fetchFromGitHub, python3Packages, glibcLocales, coreutils }:
 
-python3Packages.buildPythonPackage rec {
+python3Packages.buildPythonApplication rec {
   name = "xonsh-${version}";
-  version = "0.1.3";
+  version = "0.6.0";
 
-  # The logo xonsh prints during build contains unicode characters, and this
-  # fails because locales have not been set up in the build environment.
-  # We can fix this on Linux by setting:
-  #    export LOCALE_ARCHIVE=${pkgs.glibcLocales}/lib/locale/locale-archive
-  # but this would not be a cross platform solution, so it's simpler to just
-  # patch the setup.py script to not print the logo during build.
-  prePatch = ''
-    substituteInPlace setup.py --replace "print(logo)" ""
+  src = fetchFromGitHub {
+    owner = "scopatz";
+    repo = "xonsh";
+    rev = version;
+    sha256= "0hfsan22i81wffx2xbamm8wwkxgpv12z4kfl37p9m22vpqgg0fdg";
+  };
+
+  LC_ALL = "en_US.UTF-8";
+  postPatch = ''
+    rm xonsh/winutils.py
+
+    sed -ie "s|/bin/ls|${coreutils}/bin/ls|" tests/test_execer.py
+    sed -ie 's|/usr/bin/env|${coreutils}/bin/env|' scripts/xon.sh
+
+    patchShebangs .
   '';
 
-  propagatedBuildInputs = [ python3Packages.ply ];
+  checkPhase = ''
+    HOME=$TMPDIR XONSH_INTERACTIVE=0 \
+      pytest \
+        -k 'not test_man_completion and not test_printfile and not test_sourcefile and not test_printname ' \
+        tests
+  '';
 
-  src = fetchurl {
-    url = "https://github.com/scopatz/xonsh/archive/${version}.zip";
-    sha256 = "0p2d7p892w77ii8yy51vpw7jlz2y53k8g61m7l8bar3hr3qrl306";
-  };
+  checkInputs = with python3Packages; [ pytest glibcLocales ];
+
+  propagatedBuildInputs = with python3Packages; [ ply prompt_toolkit ];
 
   meta = with stdenv.lib; {
     description = "A Python-ish, BASHwards-compatible shell";
-    homepage = "http://xonsh.org";
+    homepage = http://xonsh.org;
     license = licenses.bsd3;
-    maintainers = [ maintainers.spwhitt ];
+    maintainers = with maintainers; [ spwhitt garbas vrthra ];
     platforms = platforms.all;
+  };
+
+  passthru = {
+    shellPath = "/bin/xonsh";
   };
 }

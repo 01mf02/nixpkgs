@@ -1,9 +1,9 @@
 # TODO add plugins having various licenses, see http://www.vamp-plugins.org/download.html
 
-{ stdenv, fetchurl, alsaLib, bzip2, fftw, jack2, libX11, liblo
+{ stdenv, fetchurl, alsaLib, bzip2, fftw, libjack2, libX11, liblo
 , libmad, libogg, librdf, librdf_raptor, librdf_rasqal, libsamplerate
-, libsndfile, pkgconfig, libpulseaudio, qt5, redland
-, rubberband, serd, sord, vampSDK, fftwFloat
+, libsndfile, pkgconfig, libpulseaudio, qtbase, redland
+, qmake, rubberband, serd, sord, vampSDK, fftwFloat
 }:
 
 stdenv.mkDerivation rec {
@@ -16,13 +16,12 @@ stdenv.mkDerivation rec {
   };
 
   buildInputs =
-    [ libsndfile qt5.base fftw fftwFloat bzip2 librdf rubberband
+    [ libsndfile qtbase fftw fftwFloat bzip2 librdf rubberband
       libsamplerate vampSDK alsaLib librdf_raptor librdf_rasqal redland
       serd
       sord
-      pkgconfig
       # optional
-      jack2
+      libjack2
       # portaudio
       libpulseaudio
       libmad
@@ -32,11 +31,12 @@ stdenv.mkDerivation rec {
       libX11
     ];
 
-  buildPhase = ''
+  nativeBuildInputs = [ pkgconfig qmake ];
+
+  configurePhase = ''
     for i in sonic-visualiser svapp svcore svgui;
-      do cd $i && qmake -makefile PREFIX=$out && cd ..;
+      do cd $i && qmake PREFIX=$out && cd ..;
     done
-    make
   '';
 
   installPhase = ''
@@ -51,5 +51,6 @@ stdenv.mkDerivation rec {
     license = licenses.gpl2Plus;
     maintainers = [ maintainers.goibhniu maintainers.marcweber ];
     platforms = platforms.linux;
+    broken = true;
   };
 }

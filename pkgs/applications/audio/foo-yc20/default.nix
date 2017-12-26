@@ -1,4 +1,4 @@
-{ stdenv, fetchFromGitHub,  jack2, gtk2, lv2, faust, pkgconfig }:
+{ stdenv, fetchFromGitHub,  libjack2, gtk2, lv2, faust, pkgconfig }:
 
 stdenv.mkDerivation rec {
   version = "git-2015-05-21";
@@ -10,7 +10,8 @@ stdenv.mkDerivation rec {
     sha256 = "0i8261n95n4xic766h70xkrpbvw3sag96n1883ahmg6h7yb94avq";
   };
 
-  buildInputs = [ jack2 gtk2 lv2 faust pkgconfig ];
+  nativeBuildInputs = [ pkgconfig ];
+  buildInputs = [ libjack2 gtk2 lv2 faust ];
 
   makeFlags = "PREFIX=$(out)";
 
@@ -18,10 +19,11 @@ stdenv.mkDerivation rec {
   postInstallFixup = "rm -rf $out/lib/lv2";
 
   meta = {
+    broken = true; # see: https://github.com/sampov2/foo-yc20/issues/7
     description = "A Faust implementation of a 1969 designed Yamaha combo organ, the YC-20";
     homepage = https://github.com/sampov2/foo-yc20;
     license     = "BSD";
-    maintainers = stdenv.lib.maintainers.magnetophon;
+    maintainers = [ stdenv.lib.maintainers.magnetophon ];
     platforms = stdenv.lib.platforms.linux;
   };
 }

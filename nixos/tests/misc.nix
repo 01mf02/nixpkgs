@@ -1,7 +1,10 @@
 # Miscellaneous small tests that don't warrant their own VM run.
 
-import ./make-test.nix {
+import ./make-test.nix ({ pkgs, ...} : {
   name = "misc";
+  meta = with pkgs.stdenv.lib.maintainers; {
+    maintainers = [ eelco chaoflow ];
+  };
 
   machine =
     { config, lib, pkgs, ... }:
@@ -13,13 +16,17 @@ import ./make-test.nix {
       systemd.tmpfiles.rules = [ "d /tmp 1777 root root 10d" ];
       fileSystems = mkVMOverride { "/tmp2" =
         { fsType = "tmpfs";
-          options = "mode=1777,noauto";
+          options = [ "mode=1777" "noauto" ];
         };
       };
       systemd.automounts = singleton
         { wantedBy = [ "multi-user.target" ];
           where = "/tmp2";
         };
+      users.users.sybil = { isNormalUser = true; group = "wheel"; };
+      security.sudo = { enable = true; wheelNeedsPassword = false; };
+      boot.kernel.sysctl."vm.swappiness" = 1;
+      boot.kernelParams = [ "vsyscall=emulate" ];
     };
 
   testScript =
@@ -29,7 +36,7 @@ import ./make-test.nix {
       };
 
       subtest "nixos-rebuild", sub {
-          $machine->succeed("nixos-rebuild --help | grep SYNOPSIS");
+          $machine->succeed("nixos-rebuild --help | grep 'NixOS module' ");
       };
 
       # Sanity check for uid/gid assignment.
@@ -77,6 +84,7 @@ import ./make-test.nix {
       };
 
       # Test whether systemd-udevd automatically loads modules for our hardware.
+      $machine->succeed("systemctl start systemd-udev-settle.service");
       subtest "udev-auto-load", sub {
           $machine->waitForUnit('systemd-udev-settle.service');
           $machine->succeed('lsmod | grep psmouse');
@@ -106,6 +114,23 @@ import ./make-test.nix {
       subtest "nix-db", sub {
           $machine->succeed("nix-store -qR /run/current-system | grep nixos-");
       };
-    '';
 
-}
+      # Test sudo
+      subtest "sudo", sub {
+          $machine->succeed("su - sybil -c 'sudo true'");
+      };
+
+      # Test sysctl
+      subtest "sysctl", sub {
+          $machine->waitForUnit("systemd-sysctl.service");
+          $machine->succeed('[ `sysctl -ne vm.swappiness` = 1 ]');
+          $machine->execute('sysctl vm.swappiness=60');
+          $machine->succeed('[ `sysctl -ne vm.swappiness` = 60 ]');
+      };
+
+      # Test boot parameters
+      subtest "bootparam", sub {
+          $machine->succeed('grep -Fq vsyscall=emulate /proc/cmdline');
+      };
+    '';
+})

@@ -1,66 +1,53 @@
-{ stdenv, fetchurl, libcdio, cddiscid, wget, bash, vorbisTools, id3v2, lame, flac, eject, mkcue
+{ stdenv, fetchurl, libcdio, cddiscid, wget, bash, which, vorbis-tools, id3v2, eyeD3
+, lame, flac, eject, mkcue, glyr
 , perl, DigestSHA, MusicBrainz, MusicBrainzDiscID
 , makeWrapper }:
 
-let version = "2.6";
+let version = "2.8.1";
 in
   stdenv.mkDerivation {
     name = "abcde-${version}";
     src = fetchurl {
-      url = "mirror://debian/pool/main/a/abcde/abcde_${version}.orig.tar.gz";
-      sha256 = "0y2cg233n2hixs0ji76dggpzgf52v4c4mnpwiai889ql2piafgk8";
+      url = "http://abcde.einval.com/download/abcde-${version}.tar.gz";
+      sha256 = "0f9bjs0phk23vry7gvh0cll9vl6kmc1y4fwwh762scfdvpbp3774";
     };
 
-    # FIXME: This package does not support MP3 encoding (only Ogg),
-    # nor `distmp3', `eject', etc.
+    # FIXME: This package does not support `distmp3', `eject', etc.
 
     patches = [ ./abcde.patch ];
 
     configurePhase = ''
       sed -i "s|^[[:blank:]]*prefix *=.*$|prefix = $out|g ;
               s|^[[:blank:]]*etcdir *=.*$|etcdir = $out/etc|g ;
-	      s|^[[:blank:]]*INSTALL *=.*$|INSTALL = install -c|g" \
-	  "Makefile";
+              s|^[[:blank:]]*INSTALL *=.*$|INSTALL = install -c|g" \
+        "Makefile";
 
       # We use `cd-paranoia' from GNU libcdio, which contains a hyphen
       # in its name, unlike Xiph's cdparanoia.
       sed -i "s|^[[:blank:]]*CDPARANOIA=.*$|CDPARANOIA=cd-paranoia|g ;
               s|^[[:blank:]]*DEFAULT_CDROMREADERS=.*$|DEFAULT_CDROMREADERS=\"cd-paranoia cdda2wav\"|g" \
-           "abcde"
+        "abcde"
 
-      substituteInPlace "abcde"					\
-	--replace "/etc/abcde.conf" "$out/etc/abcde.conf"
+      substituteInPlace "abcde" \
+        --replace "/etc/abcde.conf" "$out/etc/abcde.conf"
 
     '';
-
-    # no ELFs in this package, only scripts
-    dontStrip = true;
-    dontPatchELF = true;
 
     buildInputs = [ makeWrapper ];
 
-    postInstall = ''
-    #   substituteInPlace "$out/bin/cddb-tool" \
-    #      --replace '#!/bin/sh' '#!${bash}/bin/sh'
-    #   substituteInPlace "$out/bin/abcde" \
-    #      --replace '#!/bin/bash' '#!${bash}/bin/bash'
+    propagatedBuildInputs = [ perl DigestSHA MusicBrainz MusicBrainzDiscID ];
 
-      # generic fixup script should be doing this, but it ignores this file for some reason
-      substituteInPlace "$out/bin/abcde-musicbrainz-tool" \
-         --replace '#!/usr/bin/perl' '#!${perl}/bin/perl'
+    installFlags = [ "sysconfdir=$(out)/etc" ];
 
-      wrapProgram "$out/bin/abcde" --prefix PATH ":" \
-        "$out/bin:${libcdio}/bin:${cddiscid}/bin:${wget}/bin:${vorbisTools}/bin:${id3v2}/bin:${lame}/bin"
-
-      wrapProgram "$out/bin/cddb-tool" --prefix PATH ":" \
-        "${wget}/bin"
-
-      wrapProgram "$out/bin/abcde-musicbrainz-tool" --prefix PATH ":" \
-        "${wget}/bin"
+    postFixup = ''
+      for cmd in abcde cddb-tool abcde-musicbrainz-tool; do
+        wrapProgram "$out/bin/$cmd" --prefix PATH ":" \
+          ${stdenv.lib.makeBinPath [ "$out" which libcdio cddiscid wget vorbis-tools id3v2 eyeD3 lame flac glyr ]}
+      done
     '';
 
     meta = {
-      homepage = "http://lly.org/~rcw/abcde/page/";
+      homepage = http://abcde.einval.com/wiki/;
       license = stdenv.lib.licenses.gpl2Plus;
       description = "Command-line audio CD ripper";
 
@@ -70,5 +57,6 @@ in
         Ogg/Vorbis, MP3, FLAC, Ogg/Speex and/or MPP/MP+ (Musepack)
         format, and tags them, all in one go.
       '';
+      platforms = stdenv.lib.platforms.linux;
     };
   }

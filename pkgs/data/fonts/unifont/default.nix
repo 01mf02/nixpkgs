@@ -2,16 +2,16 @@
 
 stdenv.mkDerivation rec {
   name = "unifont-${version}";
-  version = "7.0.06";
+  version = "10.0.06";
 
   ttf = fetchurl {
-    url = "http://unifoundry.com/pub/${name}/font-builds/${name}.ttf";
-    sha256 = "0qmk06rwhxs43n1xbwj14fanbih60zqli002qhy0609da24r3957";
+    url = "mirror://gnu/unifont/${name}/${name}.ttf";
+    sha256 = "1h4scl4l6503n8ghzd35dxfbai773csjrgdziqm86334zdj9g6k6";
   };
 
   pcf = fetchurl {
-    url = "http://unifoundry.com/pub/${name}/font-builds/${name}.pcf.gz";
-    sha256 = "1wplig57wpc79mlqamhknn39cibg5z8dvbyibp1490ljcjs1dxdc";
+    url = "mirror://gnu/unifont/${name}/${name}.pcf.gz";
+    sha256 = "0ypkmwyfrsnag69h1c0mx89ranz4f6jc9y1sqkpq2rbzg64maik0";
   };
 
   buildInputs = [ mkfontscale mkfontdir ];
@@ -28,13 +28,17 @@ stdenv.mkDerivation rec {
       mkfontscale
     '';
 
+  outputHashAlgo = "sha256";
+  outputHashMode = "recursive";
+  outputHash = "1qz7qr6lrwcn47vn0hbbgqnhz3agdl7q7x4l4yd5ard0idv3jj98";
+
   meta = with stdenv.lib; {
     description = "Unicode font for Base Multilingual Plane";
     homepage = http://unifoundry.com/unifont.html;
 
     # Basically GPL2+ with font exception.
     license = http://unifoundry.com/LICENSE.txt;
-    maintainers = [ maintainers.rycee ];
+    maintainers = [ maintainers.rycee maintainers.vrthra ];
     platforms = platforms.all;
   };
 }

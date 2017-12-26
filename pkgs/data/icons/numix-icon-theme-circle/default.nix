@@ -1,18 +1,20 @@
-{ stdenv, fetchurl, unzip }:
+{ stdenv, fetchFromGitHub, numix-icon-theme }:
 
 stdenv.mkDerivation rec {
-  version = "d7e8c4cdcf";
+  version = "17-09-13";
 
   package-name = "numix-icon-theme-circle";
-  
-  name = "${package-name}-20150304";
 
-  buildInputs = [ unzip ];
-  
-  src = fetchurl {
-    url = "https://github.com/numixproject/${package-name}/archive/${version}.zip";
-    sha256 = "672d6f4d000c4c75a64e0297f9609afab1035d082d7ab4f7abe3e2173cba9324";
+  name = "${package-name}-${version}";
+
+  src = fetchFromGitHub {
+    owner = "numixproject";
+    repo = package-name;
+    rev = version;
+    sha256 = "14ck07j9v0yh8ky191sa3xxi4qh7bbg84i8jijy3kbjcx9s0zl8a";
   };
+
+  buildInputs = [ numix-icon-theme ];
 
   dontBuild = true;
 
@@ -20,11 +22,12 @@ stdenv.mkDerivation rec {
     install -dm 755 $out/share/icons
     cp -dr --no-preserve='ownership' Numix-Circle{,-Light} $out/share/icons/
   '';
-  
-  meta = {
+
+  meta = with stdenv.lib; {
     description = "Numix icon theme (circle version)";
     homepage = https://numixproject.org;
-    license = stdenv.lib.licenses.gpl3;
-    platforms = stdenv.lib.platforms.all;
+    license = licenses.gpl3;
+    platforms = platforms.all;
+    maintainers = with maintainers; [ jgeerds ];
   };
 }

@@ -1,5 +1,5 @@
 { stdenv, fetchurl, pkgconfig, fontconfig, autoreconfHook
-, withJava ? true, jdk ? null, ant ? null
+, withJava ? false, jdk ? null, ant ? null
 , withAACS ? false, libaacs ? null
 , withBDplus ? false, libbdplus ? null
 , withMetadata ? true, libxml2 ? null
@@ -18,14 +18,15 @@ assert withFonts -> freetype != null;
 # https://wiki.archlinux.org/index.php/BluRay
 
 stdenv.mkDerivation rec {
-  baseName = "libbluray";
-  version  = "0.8.0";
-  name = "${baseName}-${version}";
+  name = "libbluray-${version}";
+  version  = "1.0.0";
 
   src = fetchurl {
-    url = "ftp://ftp.videolan.org/pub/videolan/${baseName}/${version}/${name}.tar.bz2";
-    sha256 = "027xbdbsjyp1spfiva2331pzixrzw6vm97xlvgz16hzm5a5j103v";
+    url = "http://get.videolan.org/libbluray/${version}/${name}.tar.bz2";
+    sha256 = "1k3lag4lxi2jjd3zh4wcb5l3hadzm54j5kagh92yzfy76p9svqzp";
   };
+
+  patches = optional withJava ./BDJ-JARFILE-path.patch;
 
   nativeBuildInputs = [ pkgconfig autoreconfHook ]
                       ++ optionals withJava [ ant ]
@@ -37,12 +38,15 @@ stdenv.mkDerivation rec {
                 ++ optional withFonts freetype
                 ;
 
-  propagatedBuildInputs = stdenv.lib.optional withAACS libaacs;
+  propagatedBuildInputs = optional withAACS libaacs;
+
+  NIX_LDFLAGS = [
+    (optionalString withAACS   "-L${libaacs}/lib -laacs")
+    (optionalString withBDplus "-L${libbdplus}/lib -lbdplus")
+  ];
 
   preConfigure = ''
     ${optionalString withJava ''export JDK_HOME="${jdk.home}"''}
-    ${optionalString withAACS ''export NIX_LDFLAGS="$NIX_LDFLAGS -L${libaacs}/lib -laacs"''}
-    ${optionalString withBDplus ''export NIX_LDFLAGS="$NIX_LDFLAGS -L${libbdplus}/lib -lbdplus"''}
   '';
 
   configureFlags =  with stdenv.lib;
@@ -51,13 +55,11 @@ stdenv.mkDerivation rec {
                  ++ optional (! withFonts) "--without-freetype"
                  ;
 
-  # Fix search path for BDJ jarfile
-  patches = stdenv.lib.optional withJava ./BDJ-JARFILE-path.patch;
-
   meta = with stdenv.lib; {
     homepage = http://www.videolan.org/developers/libbluray.html;
     description = "Library to access Blu-Ray disks for video playback";
     license = licenses.lgpl21;
-    maintainers = [ maintainers.abbradar ];
+    maintainers = with maintainers; [ abbradar ];
+    platforms = platforms.unix;
   };
 }

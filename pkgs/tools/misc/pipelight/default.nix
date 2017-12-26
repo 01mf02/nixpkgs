@@ -1,6 +1,5 @@
-{ stdenv, fetchurl, fetchgit, autoconf, automake, wineStaging, perl, xlibs
-  , gnupg, gcc48_multi, mesa, curl, bash, cacert, cabextract, utillinux, attr
-  }:
+{ stdenv, fetchurl, bash, cabextract, curl, gnupg, libX11, mesa, perl, wineStaging
+ }:
 
 let
   wine_custom = wineStaging;
@@ -19,20 +18,21 @@ in stdenv.mkDerivation rec {
     sha256 = "1i440rf22fmd2w86dlm1mpi3nb7410rfczc0yldnhgsvp5p3sm5f";
   };
 
-  buildInputs = [ wine_custom xlibs.libX11 gcc48_multi mesa curl ];
+  buildInputs = [ wine_custom libX11 mesa curl ];
+
   propagatedbuildInputs = [ curl cabextract ];
 
   patches = [ ./pipelight.patch ];
 
   configurePhase = ''
-    patchShebangs . 
+    patchShebangs .
     ./configure \
       --prefix=$out \
       --moz-plugin-path=$out/${mozillaPluginPath} \
       --wine-path=${wine_custom} \
-      --gpg-exec=${gnupg}/bin/gpg2 \
+      --gpg-exec=${gnupg}/bin/gpg \
       --bash-interp=${bash}/bin/bash \
-      --downloader=${curl}/bin/curl
+      --downloader=${curl.bin}/bin/curl
       $configureFlags
   '';
 
@@ -53,10 +53,10 @@ in stdenv.mkDerivation rec {
   enableParallelBuilding = true;
 
   meta = {
-    homepage = "http://pipelight.net/";
+    homepage = http://pipelight.net/;
     license = with stdenv.lib.licenses; [ mpl11 gpl2 lgpl21 ];
     description = "A wrapper for using Windows plugins in Linux browsers";
-    maintainers = with stdenv.lib.maintainers; [skeidel];
-    platforms = with stdenv.lib.platforms; linux;
+    maintainers = with stdenv.lib.maintainers; [ skeidel ];
+    platforms = [ "x86_64-linux" "i686-linux" ];
   };
 }

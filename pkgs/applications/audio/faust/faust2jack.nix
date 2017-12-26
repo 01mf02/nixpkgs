@@ -1,6 +1,6 @@
 { faust
-, gtk
-, jack2
+, gtk2
+, jack2Full
 , opencv
 }:
 
@@ -15,8 +15,8 @@ faust.wrapWithBuildEnv {
   ];
 
   propagatedBuildInputs = [
-    gtk
-    jack2
+    gtk2
+    jack2Full
     opencv
   ];
 

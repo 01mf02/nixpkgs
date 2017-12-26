@@ -1,26 +1,29 @@
-{stdenv, fetchurl, coq, ssreflect}:
+{ callPackage, fetchurl, coq }:
 
-stdenv.mkDerivation {
+let param =
+  {
+    "8.5" =  {
+      version = "1.6.1";
+      url = https://github.com/math-comp/math-comp/archive/mathcomp-1.6.1.tar.gz;
+      sha256 = "1j9ylggjzrxz1i2hdl2yhsvmvy5z6l4rprwx7604401080p5sgjw";
+    };
 
-  name = "coq-mathcomp-1.5";
+    "8.6" =  {
+      version = "1.6.4";
+      url = https://github.com/math-comp/math-comp/archive/mathcomp-1.6.4.tar.gz;
+      sha256 = "0qmjjb6jsxmmf4gpw10r30rmrvwqgzirvvgyy41mz2vhgwis8wn6";
+    };
 
-  src = fetchurl {
-    url = http://ssr.msr-inria.inria.fr/FTP/mathcomp-1.5.tar.gz;
-    sha256 = "1297svwi18blrlyd8vsqilar2h5nfixlvlifdkbx47aljq4m5bam";
-  };
+    "8.7" = {
+      version = "1.6.4";
+      url = https://github.com/math-comp/math-comp/archive/mathcomp-1.6.4.tar.gz;
+      sha256 = "0qmjjb6jsxmmf4gpw10r30rmrvwqgzirvvgyy41mz2vhgwis8wn6";
+    };
 
-  propagatedBuildInputs = [ coq ssreflect ];
+  }."${coq.coq-version}"
+; in
 
-  enableParallelBuilding = true;
-
-  installFlags = "COQLIB=$(out)/lib/coq/${coq.coq-version}/";
-
-  meta = with stdenv.lib; {
-    homepage = http://ssr.msr-inria.inria.fr/;
-    license = licenses.cecill-b;
-    maintainers = [ maintainers.vbgl maintainers.jwiegley ];
-    platforms = coq.meta.platforms;
-    hydraPlatforms = [];
-  };
-
+callPackage ./generic.nix {
+  name = "coq${coq.coq-version}-mathcomp-${param.version}";
+  src = fetchurl { inherit (param) url sha256; };
 }

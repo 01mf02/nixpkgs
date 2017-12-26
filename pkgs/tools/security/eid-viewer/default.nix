@@ -1,17 +1,16 @@
-{ stdenv, fetchurl, jre, makeWrapper, pcsclite }:
+{ stdenv, fetchurl, makeWrapper, jre, pcsclite }:
 
 stdenv.mkDerivation rec {
-  # TODO: find out what the version components actually mean, if anything:
-  package = "eid-viewer-4.0.7-195";
-  build = "tcm406-258907";
-  name = "${package}-${build}";
+  name = "eid-viewer-${version}";
+  version = "4.1.9";
 
   src = fetchurl {
-    url = "http://eid.belgium.be/en/binaries/${package}.src.tar_${build}.gz";
-    sha256 = "e263e6751ef7c185e278a607fdc46c207306d9a56c6ddb2ce6f58fb4464a2893";
+    url = "https://downloads.services.belgium.be/eid/eid-viewer-${version}-v${version}.src.tar.gz";
+    sha256 = "0bq9jl4kl97j0dfhz4crcb1wqhn420z5vpg510zadvrmqjhy1x4g";
   };
 
-  buildInputs = [ jre makeWrapper pcsclite ];
+  buildInputs = [ jre pcsclite ];
+  nativeBuildInputs = [ makeWrapper ];
 
   unpackPhase = "tar -xzf ${src} --strip-components=1";
 
@@ -39,6 +38,6 @@ stdenv.mkDerivation rec {
       which is required to actually use your eID for authentication or signing.
     '';
     maintainers = with maintainers; [ nckx ];
-    platforms = with platforms; linux;
+    platforms = platforms.linux;
   };
 }

@@ -1,29 +1,42 @@
-{ stdenv, fetchurl, pkgconfig, udev, dbus_libs, perl }:
+{ stdenv, fetchurl, pkgconfig, udev, dbus_libs, perl, python2
+, IOKit ? null }:
 
 stdenv.mkDerivation rec {
-  name = "pcsclite-1.8.13";
+  name = "pcsclite-${version}";
+  version = "1.8.22";
 
   src = fetchurl {
-    url = "https://alioth.debian.org/frs/download.php/file/4126/pcsc-lite-1.8.13.tar.bz2";
-    sha256 = "0fxwzckbjsckfp1f01yp3x6y1wlaaivhy12a5hka6qwdh1z085gk";
+    # This URL changes in unpredictable ways, so it is not sensible
+    # to put a version variable in there.
+    url = "https://alioth.debian.org/frs/download.php/file/4225/pcsc-lite-1.8.22.tar.bz2";
+    sha256 = "01flkdyqs7kr6c63dv2qg8dwir3v9jlr9rzlw7vafrivxmhqydba";
   };
 
-  # The OS should care on preparing the drivers into this location
+  patches = [ ./no-dropdir-literals.patch ];
+
   configureFlags = [
+    # The OS should care on preparing the drivers into this location
     "--enable-usbdropdir=/var/lib/pcsc/drivers"
-    "--with-systemdsystemunitdir=$out/etc/systemd/system"
-    "--enable-confdir=$out/etc"
-  ];
+    "--enable-confdir=/etc"
+    "--enable-ipcdir=/run/pcscd"
+  ] ++ stdenv.lib.optional stdenv.isLinux
+         "--with-systemdsystemunitdir=\${out}/etc/systemd/system";
 
-  buildInputs = [ udev dbus_libs perl ];
+  postConfigure = ''
+    sed -i -re '/^#define *PCSCLITE_HP_DROPDIR */ {
+      s/(DROPDIR *)(.*)/\1(getenv("PCSCLITE_HP_DROPDIR") ? : \2)/
+    }' config.h
+  '';
 
-  nativeBuildInputs = [ pkgconfig ];
+  nativeBuildInputs = [ pkgconfig perl python2 ];
+  buildInputs = stdenv.lib.optionals stdenv.isLinux [ udev dbus_libs ]
+             ++ stdenv.lib.optionals stdenv.isDarwin [ IOKit ];
 
   meta = with stdenv.lib; {
     description = "Middleware to access a smart card using SCard API (PC/SC)";
     homepage = http://pcsclite.alioth.debian.org/;
     license = licenses.bsd3;
     maintainers = with maintainers; [ viric wkennington ];
-    platforms = with platforms; linux;
+    platforms = with platforms; unix;
   };
 }

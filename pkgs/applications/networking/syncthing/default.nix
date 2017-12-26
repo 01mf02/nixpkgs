@@ -1,32 +1,57 @@
-{ lib, fetchgit, goPackages }:
+{ stdenv, lib, fetchFromGitHub, go, procps, removeReferencesTo }:
 
-with goPackages;
-
-buildGoPackage rec {
+stdenv.mkDerivation rec {
+  version = "0.14.42";
   name = "syncthing-${version}";
-  version = "0.11.8";
-  goPackagePath = "github.com/syncthing/syncthing";
-  src = fetchgit {
-    url = "git://github.com/syncthing/syncthing.git";
-    rev = "refs/tags/v${version}";
-    sha256 = "fed98ac47fd84aecee7770dd59e5e68c5bc429d50b361f13b9ea2e28c3be62cf";
+
+  src = fetchFromGitHub {
+    owner  = "syncthing";
+    repo   = "syncthing";
+    rev    = "v${version}";
+    sha256 = "1n3favv94wj1fr7x9av523fgm12b0kjlrmifa25wg2p6z10vwbqf";
   };
 
-  subPackages = [ "cmd/syncthing" ];
+  buildInputs = [ go removeReferencesTo ];
 
-  buildFlagsArray = "-ldflags=-w -X main.Version v${version}";
+  buildPhase = ''
+    mkdir -p src/github.com/syncthing
+    ln -s $(pwd) src/github.com/syncthing/syncthing
+    export GOPATH=$(pwd)
 
-  preBuild = "export GOPATH=$GOPATH:$NIX_BUILD_TOP/go/src/${goPackagePath}/Godeps/_workspace";
+    # Syncthing's build.go script expects this working directory
+    cd src/github.com/syncthing/syncthing
 
-  doCheck = true;
+    go run build.go -no-upgrade -version v${version} build
+  '';
 
-  dontInstallSrc = true;
+  installPhase = ''
+    mkdir -p $out/lib/systemd/{system,user}
 
-  meta = {
-    homepage = http://syncthing.net/;
-    description = "Replaces Dropbox and BitTorrent Sync with something open, trustworthy and decentralized";
-    license = lib.licenses.mit;
-    maintainers = with lib.maintainers; [ matejc theuni ];
-    platforms = with lib.platforms; unix;
+    install -Dm755 syncthing $out/bin/syncthing
+
+  '' + lib.optionalString (stdenv.isLinux) ''
+    substitute etc/linux-systemd/system/syncthing-resume.service \
+               $out/lib/systemd/system/syncthing-resume.service \
+               --replace /usr/bin/pkill ${procps}/bin/pkill
+
+    substitute etc/linux-systemd/system/syncthing@.service \
+               $out/lib/systemd/system/syncthing@.service \
+               --replace /usr/bin/syncthing $out/bin/syncthing
+
+    substitute etc/linux-systemd/user/syncthing.service \
+               $out/lib/systemd/user/syncthing.service \
+               --replace /usr/bin/syncthing $out/bin/syncthing
+  '';
+
+  preFixup = ''
+    find $out/bin -type f -exec remove-references-to -t ${go} '{}' '+'
+  '';
+
+  meta = with stdenv.lib; {
+    homepage = https://www.syncthing.net/;
+    description = "Open Source Continuous File Synchronization";
+    license = licenses.mpl20;
+    maintainers = with maintainers; [ pshendry joko peterhoeg ];
+    platforms = platforms.unix;
   };
 }

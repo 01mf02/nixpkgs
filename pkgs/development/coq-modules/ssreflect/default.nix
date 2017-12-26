@@ -1,40 +1,29 @@
-{stdenv, fetchurl, coq}:
+{ callPackage, fetchurl, coq }:
 
-assert coq.coq-version == "8.4";
+let param =
+  {
+    "8.5" =  {
+      version = "1.6.1";
+      url = https://github.com/math-comp/math-comp/archive/mathcomp-1.6.1.tar.gz;
+      sha256 = "1j9ylggjzrxz1i2hdl2yhsvmvy5z6l4rprwx7604401080p5sgjw";
+    };
 
-stdenv.mkDerivation {
+    "8.6" =  {
+      version = "1.6.4";
+      url = https://github.com/math-comp/math-comp/archive/mathcomp-1.6.4.tar.gz;
+      sha256 = "0qmjjb6jsxmmf4gpw10r30rmrvwqgzirvvgyy41mz2vhgwis8wn6";
+    };
 
-  name = "coq-ssreflect-1.5";
+    "8.7" = {
+      version = "1.6.4";
+      url = https://github.com/math-comp/math-comp/archive/mathcomp-1.6.4.tar.gz;
+      sha256 = "0qmjjb6jsxmmf4gpw10r30rmrvwqgzirvvgyy41mz2vhgwis8wn6";
+    };
 
-  src = fetchurl {
-    url = http://ssr.msr-inria.inria.fr/FTP/ssreflect-1.5.tar.gz;
-    sha256 = "0hm1ha7sxqfqhc7iwhx6zdz3nki4rj5nfd3ab24hmz8v7mlpinds";
-  };
+  }."${coq.coq-version}"
+; in
 
-  buildInputs = [ coq.ocaml coq.camlp5 ];
-  propagatedBuildInputs = [ coq ];
-
-  enableParallelBuilding = true;
-
-  patchPhase = ''
-    # Permit building of the ssrcoq statically-bound executable
-    sed -i 's/^#-custom/-custom/' Make
-    sed -i 's/^#SSRCOQ/SSRCOQ/' Make
-  '';
-
-  installFlags = "COQLIB=$(out)/lib/coq/${coq.coq-version}/";
-
-  postInstall = ''
-    mkdir -p $out/bin
-    cp -p bin/ssrcoq $out/bin
-    cp -p bin/ssrcoq.byte $out/bin
-  '';
-
-  meta = with stdenv.lib; {
-    homepage = http://ssr.msr-inria.inria.fr/;
-    license = licenses.cecill-b;
-    maintainers = with maintainers; [ vbgl jwiegley ];
-    platforms = coq.meta.platforms;
-  };
-
+callPackage ./generic.nix {
+  name = "coq${coq.coq-version}-ssreflect-${param.version}";
+  src = fetchurl { inherit (param) url sha256; };
 }

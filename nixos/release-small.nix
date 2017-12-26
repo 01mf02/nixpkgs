@@ -31,7 +31,8 @@ in rec {
     inherit (nixos') channel manual iso_minimal dummy;
     tests = {
       inherit (nixos'.tests)
-        containers
+        containers-imperative
+        containers-ipv4
         firewall
         ipv6
         login
@@ -39,11 +40,11 @@ in rec {
         nat
         nfs3
         openssh
+        php-pcre
         proxy
         simple;
       installer = {
         inherit (nixos'.tests.installer)
-          grub1
           lvm
           separateBoot
           simple;
@@ -53,8 +54,7 @@ in rec {
 
   nixpkgs = {
     inherit (nixpkgs')
-      apacheHttpd_2_2
-      apacheHttpd_2_4
+      apacheHttpd
       cmake
       cryptsetup
       emacs
@@ -63,14 +63,12 @@ in rec {
       imagemagick
       jdk
       linux
-      mysql51
-      mysql55
+      mysql
       nginx
       nodejs
       openssh
       php
-      postgresql92
-      postgresql93
+      postgresql
       python
       rsyslog
       stdenv
@@ -87,7 +85,10 @@ in rec {
     };
     constituents =
       let all = x: map (system: x.${system}) supportedSystems; in
-      [ nixpkgs.tarball ] ++ lib.collect lib.isDerivation nixos;
+      [ nixpkgs.tarball
+        (all nixpkgs.jdk)
+      ]
+      ++ lib.collect lib.isDerivation nixos;
   });
 
 }

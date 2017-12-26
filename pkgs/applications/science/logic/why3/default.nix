@@ -1,16 +1,21 @@
-{ fetchurl, stdenv, ocaml, ocamlPackages, coq }:
+{ fetchurl, stdenv, ocamlPackages, coq }:
 
 stdenv.mkDerivation rec {
   name    = "why3-${version}";
-  version = "0.86.1";
+  version = "0.88.1";
 
   src = fetchurl {
-    url    = https://gforge.inria.fr/frs/download.php/file/34797/why3-0.86.1.tar.gz;
-    sha256 = "129kzq79n8h480zrlphgh1ixvwp3wm18nbcky9bp4wdnr6zaibd7";
+    url    = https://gforge.inria.fr/frs/download.php/file/37185/why3-0.88.1.tar.gz;
+    sha256 = "1qj00963si0vdrqjp79ai27g9rr8sqvly6n6nwpga6bnss98xqkw";
   };
 
-  buildInputs = with ocamlPackages;
-    [ coq coq.camlp5 ocaml findlib lablgtk ocamlgraph zarith menhir ];
+  buildInputs = (with ocamlPackages; [
+      ocaml findlib lablgtk ocamlgraph zarith menhir ]) ++
+    stdenv.lib.optionals (ocamlPackages.ocaml == coq.ocaml ) [
+      coq coq.camlp5
+    ];
+
+  installTargets = [ "install" "install-lib" ];
 
   meta = with stdenv.lib; {
     description = "A platform for deductive program verification";

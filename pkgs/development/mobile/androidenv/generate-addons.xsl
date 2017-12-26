@@ -21,11 +21,11 @@ let
     });
 in
 {
-<xsl:for-each select="sdk:add-on[sdk:name-id='google_apis']">
+<xsl:for-each select="sdk:add-on[sdk:name-id='google_apis']"><xsl:sort select="sdk:api-level" data-type="number"/><xsl:sort select="sdk:revision" data-type="number"/>
   google_apis_<xsl:value-of select="sdk:api-level" /> = buildGoogleApis {
     name = "<xsl:value-of select="sdk:name-id" />-<xsl:value-of select="sdk:api-level" />";
       src = fetchurl {
-        url = https://dl-ssl.google.com/android/repository/<xsl:value-of select="sdk:archives/sdk:archive/sdk:url" />;
+        url = https://dl.google.com/android/repository/<xsl:value-of select="sdk:archives/sdk:archive/sdk:url" />;
         sha1 = "<xsl:value-of select="sdk:archives/sdk:archive/sdk:checksum[@type='sha1']" />";
       };
       meta = {
@@ -39,7 +39,7 @@ in
   android_support_extra = buildGoogleApis {
     name = "android_support_extra";
     src = fetchurl {
-      url = https://dl-ssl.google.com/android/repository/<xsl:value-of select="sdk:archives/sdk:archive/sdk:url"/>;
+      url = https://dl.google.com/android/repository/<xsl:value-of select="sdk:archives/sdk:archive/sdk:url"/>;
       sha1 = "<xsl:value-of select="sdk:archives/sdk:archive/sdk:checksum[@type='sha1']" />";
     };
     meta = {
@@ -51,7 +51,7 @@ in
   google_play_services = buildGoogleApis {
     name = "google_play_services";
     src = fetchurl {
-      url = https://dl-ssl.google.com/android/repository/<xsl:value-of select="sdk:archives/sdk:archive/sdk:url"/>;
+      url = https://dl.google.com/android/repository/<xsl:value-of select="sdk:archives/sdk:archive/sdk:url"/>;
       sha1 = "<xsl:value-of select="sdk:archives/sdk:archive/sdk:checksum[@type='sha1']" />";
     };
     meta = {
@@ -60,6 +60,22 @@ in
     };
   };
 </xsl:for-each>
+
+<!-- Instant apps -->
+<xsl:for-each select="sdk:extra[sdk:path='instantapps']">
+  instant_apps = buildGoogleApis {
+    name = "instant_apps_sdk";
+    src = fetchurl {
+      url = https://dl.google.com/android/repository/<xsl:value-of select="sdk:archives/sdk:archive/sdk:url"/>;
+      sha1 = "<xsl:value-of select="sdk:archives/sdk:archive/sdk:checksum[@type='sha1']" />";
+    };
+    meta = {
+      description = "Android Instant Apps Development SDK";
+      url = "https://developer.android.com/";
+    };
+  };
+</xsl:for-each>
+
 }
 </xsl:template>
 

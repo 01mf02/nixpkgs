@@ -1,4 +1,4 @@
-{ stdenv, fetchFromGitHub
+{ stdenv, fetchFromGitHub, fixDarwinDylibNames
 
 # Optional Arguments
 , snappy ? null, google-gflags ? null, zlib ? null, bzip2 ? null, lz4 ? null
@@ -6,6 +6,8 @@
 
 # Malloc implementation
 , jemalloc ? null, gperftools ? null
+
+, enableLite ? false
 }:
 
 let
@@ -13,16 +15,16 @@ let
 in
 stdenv.mkDerivation rec {
   name = "rocksdb-${version}";
-  version = "3.11";
+  version = "5.1.2";
 
   src = fetchFromGitHub {
     owner = "facebook";
     repo = "rocksdb";
     rev = "v${version}";
-    sha256 = "06gf0k6hjarc7iw0w0p8814d27f8vrc3s0laarh7qdd4wshw02s8";
+    sha256 = "1smahz67gcd86nkdqaml78lci89dza131mlj5472r4sxjdxsx277";
   };
 
-  buildInputs = [ snappy google-gflags zlib bzip2 lz4 numactl malloc ];
+  buildInputs = [ snappy google-gflags zlib bzip2 lz4 malloc fixDarwinDylibNames ];
 
   postPatch = ''
     # Hack to fix typos
@@ -32,15 +34,23 @@ stdenv.mkDerivation rec {
   # Environment vars used for building certain configurations
   PORTABLE = "1";
   USE_SSE = "1";
+  CMAKE_CXX_FLAGS = "-std=gnu++11";
   JEMALLOC_LIB = stdenv.lib.optionalString (malloc == jemalloc) "-ljemalloc";
 
+  ${if enableLite then "LIBNAME" else null} = "librocksdb_lite";
+  ${if enableLite then "CXXFLAGS" else null} = "-DROCKSDB_LITE=1";
+
   buildFlags = [
-    "static_lib"
+    "DEBUG_LEVEL=0"
     "shared_lib"
+    "static_lib"
   ];
 
   installFlags = [
     "INSTALL_PATH=\${out}"
+    "DEBUG_LEVEL=0"
+    "install-shared"
+    "install-static"
   ];
 
   postInstall = ''
@@ -55,7 +65,7 @@ stdenv.mkDerivation rec {
     homepage = http://rocksdb.org;
     description = "A library that provides an embeddable, persistent key-value store for fast storage";
     license = licenses.bsd3;
-    platforms = platforms.all;
+    platforms = platforms.allBut [ "i686-linux" ];
     maintainers = with maintainers; [ wkennington ];
   };
 }

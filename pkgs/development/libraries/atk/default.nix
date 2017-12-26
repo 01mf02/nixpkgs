@@ -1,26 +1,33 @@
 { stdenv, fetchurl, pkgconfig, perl, glib, libintlOrEmpty, gobjectIntrospection }:
 
 let
-  ver_maj = "2.16";
-  ver_min = "0";
+  ver_maj = "2.26";
+  ver_min = "1";
 in
 stdenv.mkDerivation rec {
   name = "atk-${ver_maj}.${ver_min}";
 
   src = fetchurl {
     url = "mirror://gnome/sources/atk/${ver_maj}/${name}.tar.xz";
-    sha256 = "0qp5i91kfk6rhrlam3s8ha0cz88lkyp89vsyn4pb5856c1h9hpq9";
+    sha256 = "1jwpx8az0iifw176dc2hl4mmg6gvxzxdkd1qvg4ds7c5hdmzy07g";
   };
+
+  enableParallelBuilding = true;
+
+  outputs = [ "out" "dev" ];
 
   buildInputs = libintlOrEmpty;
 
   nativeBuildInputs = [ pkgconfig perl ];
 
-  propagatedBuildInputs = [ glib gobjectIntrospection /*ToDo: why propagate*/ ];
+  propagatedBuildInputs = [
+    # Required by atk.pc
+    glib
+    # TODO: Why propagate?
+    gobjectIntrospection
+  ];
 
-  #doCheck = true; # no checks in there (2.10.0)
-
-  postInstall = "rm -rf $out/share/gtk-doc";
+  doCheck = true;
 
   meta = {
     description = "Accessibility toolkit";
@@ -37,7 +44,7 @@ stdenv.mkDerivation rec {
 
     license = stdenv.lib.licenses.lgpl2Plus;
 
-    maintainers = with stdenv.lib.maintainers; [ raskin urkud ];
+    maintainers = with stdenv.lib.maintainers; [ raskin ];
     platforms = stdenv.lib.platforms.linux ++ stdenv.lib.platforms.darwin;
   };
 

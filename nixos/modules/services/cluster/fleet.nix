@@ -28,7 +28,7 @@ in {
 
     etcdServers = mkOption {
       type = types.listOf types.str;
-      default = [ "http://127.0.0.1:4001" ];
+      default = [ "http://127.0.0.1:2379" ];
       description = ''
         Fleet list of etcd endpoints to use.
       '';
@@ -90,7 +90,7 @@ in {
 
     extraConfig = mkOption {
       type = types.attrsOf types.str;
-      apply = mapAttrs' (n: v: nameValuePair ("ETCD_" + n) v);
+      apply = mapAttrs' (n: v: nameValuePair ("FLEET_" + n) v);
       default = {};
       example = literalExample ''
         {
@@ -120,7 +120,7 @@ in {
         FLEET_PUBLIC_IP = cfg.publicIp;
         FLEET_ETCD_CAFILE = cfg.etcdCafile;
         FLEET_ETCD_KEYFILE = cfg.etcdKeyfile;
-        FEELT_ETCD_CERTFILE = cfg.etcdCertfile;
+        FLEET_ETCD_CERTFILE = cfg.etcdCertfile;
         FLEET_METADATA = cfg.metadata;
       } // cfg.extraConfig;
       serviceConfig = {

@@ -1,38 +1,52 @@
-{ stdenv, fetchFromGitHub, cmake, x11, libX11, libXi, libXtst, libXrandr
-, xinput, curl, cryptopp ? null, unzip }:
-
-assert stdenv.isLinux -> cryptopp != null;
+{ stdenv, fetchFromGitHub, fetchpatch, cmake, xlibsWrapper, libX11, libXi, libXtst, libXrandr
+, xinput, curl, openssl, unzip }:
 
 with stdenv.lib;
 
 stdenv.mkDerivation rec {
   name = "synergy-${version}";
-  version = "1.6.3";
+  version = "1.8.8";
 
   src = fetchFromGitHub {
-    owner = "synergy";
-    repo = "synergy";
-    rev = version;
-    sha256 = "0n4zvz669vi2wyn6i6xhxp0j3nvjl4yzm441cqv6hb0d5k26wbcn";
+    owner = "symless";
+    repo = "synergy-core";
+    rev = "v${version}-stable";
+    sha256 = "0ksgr9hkf09h54572p7k7b9zkfhcdb2g2d5x7ixxn028y8i3jyp3";
   };
 
-  patches = optional stdenv.isLinux ./cryptopp.patch;
+  patches = [ ./openssl-1.1.patch ];
 
-  postPatch = (if stdenv.isLinux then ''
-    sed -i -e '/HAVE_X11_EXTENSIONS_XRANDR_H/c \
-      set(HAVE_X11_EXTENSIONS_XRANDR_H true)' CMakeLists.txt
-  '' else ''
-    ${unzip}/bin/unzip -d ext/cryptopp562 ext/cryptopp562.zip
-  '') + ''
+  patch_gcc6 = fetchpatch {
+    url = https://raw.githubusercontent.com/gentoo/gentoo/20e2bff3697ebf5f291e9907b34aae3074a36b53/dev-cpp/gmock/files/gmock-1.7.0-gcc6.patch;
+    sha256 = "0j3f381x1lf8qci9pfv6mliggl8qs2w05v5lw3rs3gn7aibg174d";
+  };
+
+  postPatch = ''
     ${unzip}/bin/unzip -d ext/gmock-1.6.0 ext/gmock-1.6.0.zip
     ${unzip}/bin/unzip -d ext/gtest-1.6.0 ext/gtest-1.6.0.zip
+    patch -d ext/gmock-1.6.0 -p1 -i ${patch_gcc6}
+  ''
+    # We have XRRNotifyEvent (libXrandr), but with the upstream CMakeLists.txt
+    # it's not able to find it (it's trying to search the store path of libX11
+    # instead) and we don't get XRandR support, even though the CMake output
+    # _seems_ to say so:
+    #
+    #   Looking for XRRQueryExtension in Xrandr - found
+    #
+    # The relevant part however is:
+    #
+    #   Looking for XRRNotifyEvent - not found
+    #
+    # So let's force it:
+  + optionalString stdenv.isLinux ''
+    sed -i -e '/HAVE_X11_EXTENSIONS_XRANDR_H/c \
+      set(HAVE_X11_EXTENSIONS_XRANDR_H true)
+    ' CMakeLists.txt
   '';
 
-  buildInputs = [ cmake x11 libX11 libXi libXtst libXrandr xinput curl ]
-             ++ optional stdenv.isLinux cryptopp;
-
-  # At this moment make install doesn't work for synergy
-  # http://synergy-foss.org/spit/issues/details/3317/
+  buildInputs = [
+    cmake xlibsWrapper libX11 libXi libXtst libXrandr xinput curl openssl
+  ];
 
   installPhase = ''
     mkdir -p $out/bin
@@ -45,10 +59,11 @@ stdenv.mkDerivation rec {
   checkPhase = "../bin/unittests";
 
   meta = {
-    description = "Tool to share the mouse keyboard and the clipboard between computers";
-    homepage = http://synergy-foss.org;
+    description = "Share one mouse and keyboard between multiple computers";
+    homepage = http://synergy-project.org/;
     license = licenses.gpl2;
     maintainers = [ maintainers.aszlig ];
     platforms = platforms.all;
+    broken = stdenv.isDarwin;
   };
 }

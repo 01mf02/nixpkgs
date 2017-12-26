@@ -2,7 +2,7 @@
 
 let
   inherit (stdenv) system;
-  version = "20b";
+  version = "21b";
   downloadUrl = arch:
     "http://common-lisp.net/project/cmucl/downloads/release/" +
     "${version}/cmucl-${version}-${arch}.tar.bz2";
@@ -13,7 +13,7 @@ let
   dist =
     if system == "i686-linux" then fetchDist {
         arch = "x86-linux";
-        sha256 = "1s00r1kszk5zhmv7m8z5q2wcqjn2gn7fbqwji3hgnsdvbb1f3jdn";
+        sha256 = "13k3b5ygnbsq6n2i3r5i4ljw3r1qlskn2p5f4x9hrx6vfvbb3k7a";
       }
     else throw "Unsupported platform for cmucl.";
 in
@@ -37,5 +37,7 @@ stdenv.mkDerivation {
     '';
     license = stdenv.lib.licenses.free;		# public domain
     homepage = http://www.cons.org/cmucl/;
+    maintainers = [stdenv.lib.maintainers.tohl];
+    platforms = stdenv.lib.platforms.linux;
   };
 }

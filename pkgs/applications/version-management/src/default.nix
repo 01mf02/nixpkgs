@@ -1,38 +1,32 @@
-{ stdenv, fetchurl, python, rcs, git }:
+{ stdenv, fetchurl, python, rcs, git, makeWrapper }:
 
 stdenv.mkDerivation rec {
-  name = "src-0.13";
+  name = "src-${version}";
+  version = "1.13";
 
   src = fetchurl {
     url = "http://www.catb.org/~esr/src/${name}.tar.gz";
-    sha256 = "03x0slgi6bnzgfn7f9qbl6jma0pj7357kwdh832l3v8zafk41p51";
+    sha256 = "0l13ld8nxm1c720ns22lyx3q1bq2c2zn78vi5w92b7nl6p2nncy8";
   };
 
-  buildInputs = [ python ];
+  buildInputs = [ python rcs git makeWrapper ];
 
-  patches = [ ./path.patch ];
-
-  postPatch = ''
-    sed -i \
-      -e 's|@python@|${python}|' \
-      -e 's|@rcs@|${rcs}|' \
-      -e 's|@git@|${git}|' \
-      src srctest
+  preConfigure = ''
+    patchShebangs .
   '';
 
   makeFlags = [ "prefix=$(out)" ];
 
-  doCheck = true;
+  postInstall = ''
+    wrapProgram $out/bin/src \
+      --suffix PATH ":" "${rcs}/bin"
+  '';
 
-  meta = {
+  meta = with stdenv.lib; {
     description = "Simple single-file revision control";
-
     homepage = http://www.catb.org/~esr/src/;
-
-    license = stdenv.lib.licenses.bsd3;
-
-    maintainers = [ stdenv.lib.maintainers.shlevy ];
-
-    platforms = stdenv.lib.platforms.all;
+    license = licenses.bsd3;
+    platforms = platforms.all;
+    maintainers = with maintainers; [ calvertvl ];
   };
 }

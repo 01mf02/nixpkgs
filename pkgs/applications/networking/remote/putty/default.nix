@@ -1,25 +1,31 @@
-{ stdenv, fetchurl, ncurses, gtk, pkgconfig, autoconf, automake, perl, halibut, libtool }:
+{ stdenv, fetchurl, autoconf, automake, pkgconfig, libtool
+, gtk2, halibut, ncurses, perl }:
 
 stdenv.mkDerivation rec {
-  version = "0.64";
+  version = "0.70";
   name = "putty-${version}";
 
   src = fetchurl {
-    url = "http://the.earth.li/~sgtatham/putty/latest/${name}.tar.gz";
-    sha256 = "089qbzd7w51sc9grm2x3lcbj61jdqsnakb4j4gnf6i2131xcjiia";
+    urls = [
+      "https://the.earth.li/~sgtatham/putty/${version}/${name}.tar.gz"
+      "ftp://ftp.wayne.edu/putty/putty-website-mirror/${version}/${name}.tar.gz"
+    ];
+    sha256 = "1gmhwwj1y7b5hgkrkxpf4jddjpk9l5832zq5ibhsiicndsfs92mv";
   };
 
   preConfigure = ''
     perl mkfiles.pl
     ( cd doc ; make );
-    sed '/AM_PATH_GTK(/d' -i unix/configure.ac
-    sed '/AC_OUTPUT/iAM_PROG_CC_C_O' -i unix/configure.ac
-    sed '/AC_OUTPUT/iAM_PROG_AR' -i unix/configure.ac
+    sed -e '/AM_PATH_GTK(/d' \
+        -e '/AC_OUTPUT/iAM_PROG_CC_C_O' \
+        -e '/AC_OUTPUT/iAM_PROG_AR' -i configure.ac
     ./mkauto.sh
     cd unix
   '';
 
-  buildInputs = [ gtk ncurses pkgconfig autoconf automake perl halibut libtool ];
+  nativeBuildInputs = [ autoconf automake halibut libtool perl pkgconfig ];
+  buildInputs = [ gtk2 ncurses ];
+  enableParallelBuilding = true;
 
   meta = with stdenv.lib; {
     description = "A Free Telnet/SSH Client";
@@ -28,7 +34,8 @@ stdenv.mkDerivation rec {
       platforms, along with an xterm terminal emulator.
       It is written and maintained primarily by Simon Tatham.
     '';
-    homepage = http://www.chiark.greenend.org.uk/~sgtatham/putty/;
+    homepage = https://www.chiark.greenend.org.uk/~sgtatham/putty/;
     license = licenses.mit;
+    platforms = platforms.linux;
   };
 }

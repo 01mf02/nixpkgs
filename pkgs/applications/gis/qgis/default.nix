@@ -1,32 +1,40 @@
-{ stdenv, fetchurl, gdal, cmake, qt4, flex, bison, proj, geos, x11, sqlite, gsl,
-  pyqt4, qwt, fcgi, pythonPackages, libspatialindex, libspatialite, qscintilla, postgresql, makeWrapper }:
+{ stdenv, fetchurl, fetchpatch, gdal, cmake, qt4, flex, bison, proj, geos, xlibsWrapper, sqlite, gsl
+, qwt, fcgi, python2Packages, libspatialindex, libspatialite, qscintilla, postgresql, makeWrapper
+, qjson, qca2, txt2tags, openssl
+, withGrass ? false, grass
+}:
 
 stdenv.mkDerivation rec {
-  name = "qgis-2.8.2";
+  name = "qgis-2.18.15";
 
-  buildInputs = [ gdal qt4 flex bison proj geos x11 sqlite gsl pyqt4 qwt qscintilla
-    fcgi libspatialindex libspatialite postgresql ] ++
-    (with pythonPackages; [ numpy psycopg2 ]);
+  buildInputs = [ gdal qt4 flex openssl bison proj geos xlibsWrapper sqlite gsl qwt qscintilla
+    fcgi libspatialindex libspatialite postgresql qjson qca2 txt2tags ] ++
+    (stdenv.lib.optional withGrass grass) ++
+    (with python2Packages; [ jinja2 numpy psycopg2 pygments requests python2Packages.qscintilla sip ]);
 
   nativeBuildInputs = [ cmake makeWrapper ];
 
+  # `make -f src/providers/wms/CMakeFiles/wmsprovider_a.dir/build.make src/providers/wms/CMakeFiles/wmsprovider_a.dir/qgswmssourceselect.cpp.o`:
   # fatal error: ui_qgsdelimitedtextsourceselectbase.h: No such file or directory
-  #enableParallelBuilding = true;
+  enableParallelBuilding = false;
 
   # To handle the lack of 'local' RPATH; required, as they call one of
   # their built binaries requiring their libs, in the build process.
   preBuild = ''
-    export LD_LIBRARY_PATH=`pwd`/output/lib:$LD_LIBRARY_PATH
+    export LD_LIBRARY_PATH=`pwd`/output/lib:${stdenv.lib.makeLibraryPath [ openssl ]}:$LD_LIBRARY_PATH
   '';
 
   src = fetchurl {
     url = "http://qgis.org/downloads/${name}.tar.bz2";
-    sha256 = "fd3c01e48224f611c3bb279b0af9cc1dff3844cdc93f7b45e4f37cf8f350bc4b";
+    sha256 = "1jpprkk91s2wwx0iiqlnsngxnn52zs32bad799fjai58nrsh8b7b";
   };
+
+  cmakeFlags = stdenv.lib.optional withGrass "-DGRASS_PREFIX7=${grass}/${grass.name}";
 
   postInstall = ''
     wrapProgram $out/bin/qgis \
-      --prefix PYTHONPATH : $PYTHONPATH
+      --prefix PYTHONPATH : $PYTHONPATH \
+      --prefix LD_LIBRARY_PATH : ${stdenv.lib.makeLibraryPath [ openssl ]}
   '';
 
   meta = {

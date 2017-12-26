@@ -2,21 +2,24 @@
 
 stdenv.mkDerivation rec {
   name = "apulse-${version}";
-  version = "0.1.5";
+  version = "0.1.10";
 
   src = fetchFromGitHub {
     owner = "i-rinat";
     repo = "apulse";
     rev = "v${version}";
-    sha256 = "0b384dr415flxk3n4abfwfljlh7vvr1g9gad15zc5fgbyxsinv12";
+    sha256 = "018gaxn647wz1vjbr49hfrch9svnv0d1nzijc8ckb4fsr8vv95a1";
   };
 
-  buildInputs =
-    [ alsaLib cmake pkgconfig glib ];
+  enableParallelBuilding = true;
+
+  nativeBuildInputs = [ cmake pkgconfig ];
+
+  buildInputs = [ alsaLib glib ];
 
   meta = with stdenv.lib; {
     description = "PulseAudio emulation for ALSA";
-    homepage = "https://github.com/i-rinat/apulse";
+    homepage = https://github.com/i-rinat/apulse;
     license = licenses.mit;
     platforms = platforms.linux;
     maintainers = [ maintainers.jagajaga ];

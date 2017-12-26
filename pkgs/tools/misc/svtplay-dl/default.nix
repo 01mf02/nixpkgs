@@ -1,18 +1,20 @@
-{ stdenv, fetchFromGitHub, makeWrapper, python, perl, zip
-, rtmpdump, nose, mock, pycrypto, substituteAll }:
+{ stdenv, fetchFromGitHub, makeWrapper, pythonPackages, perl, zip
+, rtmpdump, substituteAll }:
 
-stdenv.mkDerivation rec {
+let
+  inherit (pythonPackages) python nose pycrypto requests mock;
+in stdenv.mkDerivation rec {
   name = "svtplay-dl-${version}";
-  version = "0.10.2015.05.24";
+  version = "1.9.6";
 
   src = fetchFromGitHub {
     owner = "spaam";
     repo = "svtplay-dl";
     rev = version;
-    sha256 = "0dzd5n4zvrplvm3sx017ym7jlngp4pn8nra9qx9n4wq6h4c6n6a5";
+    sha256 = "11xw4whh60k61i8akd7avb254mmffaig72kb7w6prk1kjq05js2s";
   };
 
-  pythonPaths = [ pycrypto ];
+  pythonPaths = [ pycrypto requests ];
   buildInputs = [ python perl nose mock rtmpdump makeWrapper ] ++ pythonPaths;
   nativeBuildInputs = [ zip ];
 
@@ -20,11 +22,11 @@ stdenv.mkDerivation rec {
     substituteInPlace lib/svtplay_dl/fetcher/rtmp.py \
       --replace '"rtmpdump"' '"${rtmpdump}/bin/rtmpdump"'
 
-    substituteInPlace run-tests.sh \
+    substituteInPlace scripts/run-tests.sh \
       --replace 'PYTHONPATH=lib' 'PYTHONPATH=lib:$PYTHONPATH'
   '';
 
-  makeFlags = "PREFIX=$(out) SYSCONFDIR=$(out)/etc PYTHON=${python}/bin/python";
+  makeFlags = "PREFIX=$(out) SYSCONFDIR=$(out)/etc PYTHON=${python.interpreter}";
 
   postInstall = ''
     wrapProgram "$out/bin/svtplay-dl" \
@@ -32,7 +34,7 @@ stdenv.mkDerivation rec {
   '';
 
   doCheck = true;
-  checkPhase = "sh run-tests.sh -2";
+  checkPhase = "sh scripts/run-tests.sh -2";
 
   meta = with stdenv.lib; {
     homepage = https://github.com/spaam/svtplay-dl;

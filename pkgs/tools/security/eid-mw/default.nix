@@ -1,18 +1,26 @@
-{ stdenv, fetchFromGitHub, autoreconfHook, gtk2, nssTools, pcsclite
-, pkgconfig }:
+{ stdenv, fetchFromGitHub
+, autoreconfHook, pkgconfig
+, gtk3, nssTools, pcsclite }:
 
-let version = "4.1.2"; in
 stdenv.mkDerivation rec {
   name = "eid-mw-${version}";
+  version = "4.1.19";
 
   src = fetchFromGitHub {
-    sha256 = "034ar1v2qamdyq71nklh1nvqbmw6ryz63jdwnnc873f639mf5w94";
+    sha256 = "191c74kxfrfb894v8y4vi2iygyffjy9jjq5fj7cnnddgwai5n3c5";
     rev = "v${version}";
     repo = "eid-mw";
     owner = "Fedict";
   };
 
-  buildInputs = [ autoreconfHook gtk2 pcsclite pkgconfig ];
+  nativeBuildInputs = [ autoreconfHook pkgconfig ];
+  buildInputs = [ gtk3 pcsclite ];
+
+  postPatch = ''
+    sed 's@m4_esyscmd_s(.*,@[${version}],@' -i configure.ac
+  '';
+
+  configureFlags = [ "--enable-dialogs=yes" ];
 
   enableParallelBuilding = true;
 
@@ -23,8 +31,8 @@ stdenv.mkDerivation rec {
     substituteInPlace $out/bin/eid-nssdb \
       --replace "modutil" "${nssTools}/bin/modutil"
 
-    # Only provides a useless "about-eid-mw.desktop" that doesn't even work:
-    rm -rf $out/share/applications
+    # Only provides a useless "about-eid-mw.desktop" that segfaults anyway:
+    rm -r $out/share/applications $out/bin/about-eid-mw
   '';
 
   meta = with stdenv.lib; {
@@ -50,6 +58,6 @@ stdenv.mkDerivation rec {
       and remove all ~/.pki and/or /etc/pki directories no longer needed.
     '';
     maintainers = with maintainers; [ nckx ];
-    platforms = with platforms; linux;
+    platforms = platforms.linux;
   };
 }

@@ -1,14 +1,20 @@
-{ fetchurl, stdenv }:
+{ fetchurl, stdenv, libiconv }:
 
 stdenv.mkDerivation rec {
-  name = "libidn-1.30";
+  name = "libidn-1.33";
 
   src = fetchurl {
     url = "mirror://gnu/libidn/${name}.tar.gz";
-    sha256 = "0lxh5r1z8gsk4jxx3rv8aasjv8p53j4y04kvfn2w30a0syagrf9r";
+    sha256 = "068fjg2arlppjqqpzd714n1lf6gxkpac9v5yyvp1qwmv6nvam9s4";
   };
 
-  doCheck = ! stdenv.isDarwin;
+  outputs = [ "bin" "dev" "out" "info" "devdoc" ];
+
+  doCheck = (stdenv.buildPlatform == stdenv.hostPlatform) && !stdenv.isDarwin;
+
+  hardeningDisable = [ "format" ];
+
+  buildInputs = stdenv.lib.optional stdenv.isDarwin libiconv;
 
   meta = {
     homepage = http://www.gnu.org/software/libidn/;

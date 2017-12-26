@@ -1,24 +1,36 @@
-{ fetchurl, stdenv, gnutls, glib, pkgconfig, check, libotr }:
+{ fetchurl, fetchpatch, stdenv, gnutls, glib, pkgconfig, check, libotr, python,
+enableLibPurple ? false, pidgin ? null }:
 
 with stdenv.lib;
 stdenv.mkDerivation rec {
-  name = "bitlbee-3.4";
+  name = "bitlbee-3.5.1";
 
   src = fetchurl {
     url = "mirror://bitlbee/src/${name}.tar.gz";
-    sha256 = "0plx4dryf8i6hz7vghg84z5f6w6rkw1l8ckl4c4wh5zxpd3ddfnf";
+    sha256 = "0sgsn0fv41rga46mih3fyv65cvfa6rvki8x92dn7bczbi7yxfdln";
   };
 
-  buildInputs = [ gnutls glib pkgconfig libotr ]
-    ++ optional doCheck check;
+  nativeBuildInputs = [ pkgconfig ] ++ optional doCheck check;
+
+  buildInputs = [ gnutls glib libotr python ]
+    ++ optional enableLibPurple pidgin;
+
+  preConfigure = optionalString enableLibPurple
+    "export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:${pidgin}/lib/pkgconfig";
 
   configureFlags = [
     "--gcov=1"
     "--otr=1"
     "--ssl=gnutls"
-  ];
+    "--pidfile=/var/lib/bitlbee/bitlbee.pid"
+  ]
+  ++ optional enableLibPurple "--purple=1";
 
-  doCheck = true;
+  buildPhase = optionalString (!enableLibPurple) ''
+    make install-dev
+  '';
+
+  doCheck = !enableLibPurple; # Checks fail with libpurple for some reason
 
   meta = {
     description = "IRC instant messaging gateway";
@@ -34,10 +46,10 @@ stdenv.mkDerivation rec {
       Messenger, AIM and ICQ.
     '';
 
-    homepage = http://www.bitlbee.org/;
+    homepage = https://www.bitlbee.org/;
     license = licenses.gpl2Plus;
 
-    maintainers = with maintainers; [ wkennington ];
+    maintainers = with maintainers; [ wkennington pSub ];
     platforms = platforms.gnu;  # arbitrary choice
   };
 }

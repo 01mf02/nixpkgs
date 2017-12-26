@@ -1,30 +1,48 @@
-{ stdenv, fetchurl, makeWrapper, buildPythonPackage, zip, ffmpeg
-, pandoc ? null }:
+{ stdenv, fetchurl, buildPythonApplication
+, zip, ffmpeg, rtmpdump, atomicparsley, pycryptodome, pandoc
+# Pandoc is required to build the package's man page. Release tarballs contain a
+# formatted man page already, though, it will still be installed. We keep the
+# manpage argument in place in case someone wants to use this derivation to
+# build a Git version of the tool that doesn't have the formatted man page
+# included.
+, generateManPage ? false
+, ffmpegSupport ? true
+, rtmpSupport ? true
+, hlsEncryptedSupport ? true
+, makeWrapper }:
 
-# Pandoc is required to build the package's man page. Release tarballs
-# contain a formatted man page already, though, so it's fine to pass
-# "pandoc = null" to this derivation; the man page will still be
-# installed. We keep the pandoc argument and build input in place in
-# case someone wants to use this derivation to build a Git version of
-# the tool that doesn't have the formatted man page included.
+with stdenv.lib;
+buildPythonApplication rec {
 
-buildPythonPackage rec {
   name = "youtube-dl-${version}";
-  version = "2015.05.29";
+  version = "2017.12.23";
 
   src = fetchurl {
-    url = "http://youtube-dl.org/downloads/${version}/${name}.tar.gz";
-    sha256 = "0lgxir2i5ipplg57wk8gnbbsdrk7szqnyb1bxr97f3h0rbm4dfij";
+    url = "https://yt-dl.org/downloads/${version}/${name}.tar.gz";
+    sha256 = "12m1bjdqm9bsc1f5psnzc203avzwr070xpdr6fqr728am536q845";
   };
 
-  buildInputs = [ makeWrapper zip pandoc ];
+  nativeBuildInputs = [ makeWrapper ];
+  buildInputs = [ zip ] ++ optional generateManPage pandoc;
+  propagatedBuildInputs = optional hlsEncryptedSupport pycryptodome;
 
   # Ensure ffmpeg is available in $PATH for post-processing & transcoding support.
-  postInstall = stdenv.lib.optionalString (ffmpeg != null) 
-    ''wrapProgram $out/bin/youtube-dl --prefix PATH : "${ffmpeg}/bin"'';
+  # rtmpdump is required to download files over RTMP
+  # atomicparsley for embedding thumbnails
+  postInstall = let
+    packagesToBinPath =
+    [ atomicparsley ]
+    ++ optional ffmpegSupport ffmpeg
+    ++ optional rtmpSupport rtmpdump;
+  in ''
+    wrapProgram $out/bin/youtube-dl --prefix PATH : "${makeBinPath packagesToBinPath}"
+  '';
 
-  meta = with stdenv.lib; {
-    homepage = "http://rg3.github.com/youtube-dl/";
+  # Requires network
+  doCheck = false;
+
+  meta = {
+    homepage = http://rg3.github.io/youtube-dl/;
     repositories.git = https://github.com/rg3/youtube-dl.git;
     description = "Command-line tool to download videos from YouTube.com and other sites";
     longDescription = ''
@@ -35,6 +53,6 @@ buildPythonPackage rec {
     '';
     license = licenses.publicDomain;
     platforms = with platforms; linux ++ darwin;
-    maintainers = with maintainers; [ bluescreen303 simons phreedom AndersonTorres fuuzetsu ];
+    maintainers = with maintainers; [ bluescreen303 phreedom AndersonTorres fuuzetsu fpletz ];
   };
 }

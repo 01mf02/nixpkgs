@@ -1,14 +1,17 @@
-{ stdenv, fetchFromGitHub, cmake, python }:
-
+{ stdenv
+, fetchFromGitHub
+, cmake
+, python
+}:
 stdenv.mkDerivation rec {
   name = "jsoncpp-${version}";
-  version = "1.6.2";
+  version = "1.8.0";
 
   src = fetchFromGitHub {
     owner = "open-source-parsers";
     repo = "jsoncpp";
     rev = version;
-    sha256 = "0p92i0hx2k3g8mwrcy339b56bfq8qgpb65id8xllkgd2ns4wi9zi";
+    sha256 = "1lg22zrjnl10x1bw0wfz72xd2kfbzynyggk8vdwd89mp1g8xjl9d";
   };
 
   /* During darwin bootstrap, we have a cp that doesn't understand the
@@ -20,24 +23,27 @@ stdenv.mkDerivation rec {
     export sourceRoot=${src.name}
   '';
 
-  nativeBuildInputs = [
-    # cmake can be built with the system jsoncpp, or its own bundled version.
-    # Obviously we cannot build it against the system jsoncpp that doesn't yet exist, so
-    # we make a bootstrapping build with the bundled version.
-    (cmake.override { jsoncpp = null; })
-    python
-  ];
+  # Hack to be able to run the test, broken because we use
+  # CMAKE_SKIP_BUILD_RPATH to avoid cmake resetting rpath on install
+  preBuild = if stdenv.isDarwin then ''
+    export DYLD_LIBRARY_PATH="`pwd`/src/lib_json:$DYLD_LIBRARY_PATH"
+  '' else ''
+    export LD_LIBRARY_PATH="`pwd`/src/lib_json:$LD_LIBRARY_PATH"
+  '';
+
+  nativeBuildInputs = [ cmake python ];
 
   cmakeFlags = [
-    "-DJSONCPP_WITH_CMAKE_PACKAGE=1"
+    "-DBUILD_SHARED_LIBS=ON"
+    "-DBUILD_STATIC_LIBS=OFF"
   ];
 
-  meta = {
+  meta = with stdenv.lib; {
     inherit version;
     homepage = https://github.com/open-source-parsers/jsoncpp;
-    description = "A simple API to manipulate JSON data in C++";
-    maintainers = with stdenv.lib.maintainers; [ ttuegel ];
-    license = stdenv.lib.licenses.mit;
-    branch = "1.6";
+    description = "A C++ library for interacting with JSON.";
+    maintainers = with maintainers; [ ttuegel cpages ];
+    license = licenses.mit;
+    platforms = platforms.all;
   };
 }

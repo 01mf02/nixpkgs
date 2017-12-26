@@ -1,40 +1,52 @@
 { stdenv, fetchurl, glib, flex, bison, pkgconfig, libffi, python
-, libintlOrEmpty, autoconf, automake, otool }:
+, libintlOrEmpty, cctools
+, substituteAll, nixStoreDir ? builtins.storeDir
+}:
 # now that gobjectIntrospection creates large .gir files (eg gtk3 case)
 # it may be worth thinking about using multiple derivation outputs
 # In that case its about 6MB which could be separated
 
 let
-  ver_maj = "1.42";
-  ver_min = "0";
+  ver_maj = "1.54";
+  ver_min = "1";
 in
+with stdenv.lib;
 stdenv.mkDerivation rec {
   name = "gobject-introspection-${ver_maj}.${ver_min}";
 
   src = fetchurl {
     url = "mirror://gnome/sources/gobject-introspection/${ver_maj}/${name}.tar.xz";
-    sha256 = "3ba2edfad4f71d4f0de16960b5d5f2511335fa646b2c49bbb93ce5942b3f95f7";
+    sha256 = "0zl7pfkzkm07733391b4f3cwjbnvb1nwvpmajf5bajh6bxgfv3dq";
   };
 
-  buildInputs = [ flex bison pkgconfig python ]
+  outputs = [ "out" "dev" ];
+  outputBin = "dev";
+  outputMan = "dev"; # tiny pages
+
+  nativeBuildInputs = [ pkgconfig ];
+  buildInputs = [ flex bison python setupHook/*move .gir*/ ]
     ++ libintlOrEmpty
-    ++ stdenv.lib.optional stdenv.isDarwin otool;
+    ++ stdenv.lib.optional stdenv.isDarwin cctools;
   propagatedBuildInputs = [ libffi glib ];
 
-  # Tests depend on cairo, which is undesirable (it pulls in lots of
-  # other dependencies).
-  configureFlags = [ "--disable-tests" ];
+  preConfigure = ''
+    sed 's|/usr/bin/env ||' -i tools/g-ir-tool-template.in
+  '';
 
-  postInstall = "rm -rf $out/share/gtk-doc";
+  # outputs TODO: share/gobject-introspection-1.0/tests is needed during build
+  # by pygobject3 (and maybe others), but it's only searched in $out
 
   setupHook = ./setup-hook.sh;
 
-  patches = [ ./absolute_shlib_path.patch ];
+  patches = stdenv.lib.singleton (substituteAll {
+    src = ./absolute_shlib_path.patch;
+    inherit nixStoreDir;
+  });
 
   meta = with stdenv.lib; {
     description = "A middleware layer between C libraries and language bindings";
     homepage    = http://live.gnome.org/GObjectIntrospection;
-    maintainers = with maintainers; [ lovek323 urkud lethalman ];
+    maintainers = with maintainers; [ lovek323 lethalman ];
     platforms   = platforms.unix;
 
     longDescription = ''

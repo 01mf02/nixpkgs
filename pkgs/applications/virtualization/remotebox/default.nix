@@ -1,25 +1,28 @@
-{ stdenv, fetchurl, perl, perlPackages }:
+{ stdenv, fetchurl, makeWrapper, perl, perlPackages }:
 
 stdenv.mkDerivation rec {
-  version = "1.9";
   name = "remotebox-${version}";
+  version = "2.2";
 
   src = fetchurl {
-    url = "${meta.homepage}/downloads/RemoteBox-${version}.tar.bz2";
-    sha256 = "0vsfz2qmha9nz60fyksgqqyrw4lz9z2d5isnwqc6afn8z3i1qmkp";
+    url = "http://remotebox.knobgoblin.org.uk/downloads/RemoteBox-${version}.tar.bz2";
+    sha256 = "0g7lx5zk9fk5k8alpag45z2zw9bnrlx1zfs63rc3ilfyvm4k4zc5";
   };
 
-  buildInputs = [ perl perlPackages.Gtk2 perlPackages.SOAPLite ];
+  buildInputs = with perlPackages; [ perl Glib Gtk2 Pango SOAPLite ];
+  nativeBuildInputs = [ makeWrapper ];
 
   installPhase = ''
-    mkdir -p $out/bin
-    cp -a docs/ share/ $out
+    mkdir -pv $out/bin
 
     substituteInPlace remotebox --replace "\$Bin/" "\$Bin/../"
-    install -t $out/bin remotebox
+    install -v -t $out/bin remotebox
+    wrapProgram $out/bin/remotebox --prefix PERL5LIB : $PERL5LIB
 
-    mkdir -p $out/share/applications
-    cp -p packagers-readme/*.desktop $out/share/applications
+    cp -av docs/ share/ $out
+
+    mkdir -pv $out/share/applications
+    cp -pv packagers-readme/*.desktop $out/share/applications
   '';
 
   meta = with stdenv.lib; {
@@ -28,13 +31,13 @@ stdenv.mkDerivation rec {
     license = licenses.gpl2Plus;
     longDescription = ''
       VirtualBox is traditionally considered to be a virtualization solution
-      aimed at the desktop.  While it is certainly possible to install
+      aimed at the desktop. While it is certainly possible to install
       VirtualBox on a server, it offers few remote management features beyond
       using the vboxmanage command line.
       RemoteBox aims to fill this gap by providing a graphical VirtualBox
       client which is able to manage a VirtualBox server installation.
     '';
     maintainers = with maintainers; [ nckx ];
-    platforms = with platforms; all;
+    platforms = platforms.all;
   };
 }

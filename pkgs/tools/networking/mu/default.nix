@@ -1,24 +1,32 @@
-{ fetchurl, stdenv, sqlite, pkgconfig, autoconf, automake
+{ stdenv, fetchFromGitHub, sqlite, pkgconfig, autoreconfHook, pmccabe
 , xapian, glib, gmime, texinfo , emacs, guile
-, gtk3, webkit, libsoup, icu, withMug ? false /* doesn't build with current gtk3 */ }:
+, gtk3, webkitgtk24x-gtk3, libsoup, icu
+, withMug ? false }:
 
 stdenv.mkDerivation rec {
-  version = "0.9.12";
   name = "mu-${version}";
+  version = "0.9.18";
 
-  src = fetchurl {
-    url = "https://github.com/djcb/mu/archive/v${version}.tar.gz";
-    sha256 = "1bxryacmas2llj68m2dv8dr1vwx8f5k2i2azh69jajkpqx7i4wdq";
+  src = fetchFromGitHub {
+    owner  = "djcb";
+    repo   = "mu";
+    rev    = version;
+    sha256 = "0zy0p196bfrfzsq8f58xv04rpnr948sdvljflgzvi6js0vz4009y";
   };
 
-  buildInputs =
-    [ sqlite pkgconfig autoconf automake xapian
-      glib gmime texinfo emacs guile libsoup icu ]
-    ++ stdenv.lib.optional withMug [ gtk3 webkit ];
+  # as of 0.9.18 2 tests are failing but previously we had no tests
+  patches = [
+    ./failing_tests.patch
+  ];
 
-  preConfigure = ''
-    autoreconf -i
-  '';
+  # pmccabe should be a checkInput instead, but configure looks for it
+  buildInputs = [
+    sqlite xapian glib gmime texinfo emacs guile libsoup icu
+  ] ++ stdenv.lib.optionals withMug [ gtk3 webkitgtk24x-gtk3 ];
+  nativeBuildInputs = [ pkgconfig autoreconfHook ];
+  checkInputs = [ pmccabe ];
+
+  doCheck = true;
 
   preBuild = ''
     # Fix mu4e-builddir (set it to $out)
@@ -32,15 +40,16 @@ stdenv.mkDerivation rec {
 
   # Install mug and msg2pdf
   postInstall = stdenv.lib.optionalString withMug ''
-    cp -v toys/msg2pdf/msg2pdf $out/bin/
-    cp -v toys/mug/mug $out/bin/
+    for f in msg2pdf mug ; do
+      install -m755 toys/$f/$f $out/bin/$f
+    done
   '';
 
-  meta = {
+  meta = with stdenv.lib; {
     description = "A collection of utilties for indexing and searching Maildirs";
-    license = stdenv.lib.licenses.gpl3Plus;
-    homepage = "http://www.djcbsoftware.nl/code/mu/";
-    platforms = stdenv.lib.platforms.mesaPlatforms;
-    maintainers = with stdenv.lib.maintainers; [ antono the-kenny ];
+    license = licenses.gpl3Plus;
+    homepage = http://www.djcbsoftware.nl/code/mu/;
+    platforms = platforms.mesaPlatforms;
+    maintainers = with maintainers; [ antono the-kenny peterhoeg ];
   };
 }

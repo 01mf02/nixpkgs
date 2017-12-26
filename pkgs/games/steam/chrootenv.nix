@@ -1,77 +1,126 @@
-{ lib, buildFHSUserEnv, config }:
+{ stdenv, lib, writeScript, buildFHSUserEnv, steam
+, steam-runtime-wrapped, steam-runtime-wrapped-i686 ? null
+, withJava ? false
+, withPrimus ? false
+, extraPkgs ? pkgs: [ ] # extra packages to add to targetPkgs
+, nativeOnly ? false
+, runtimeOnly ? false
+}:
 
-buildFHSUserEnv {
+let
+  commonTargetPkgs = pkgs: with pkgs;
+    let
+      tzdir = "${pkgs.tzdata}/share/zoneinfo";
+      # I'm not sure if this is the best way to add things like this
+      # to an FHSUserEnv
+      etc-zoneinfo = pkgs.runCommand "zoneinfo" {} ''
+        mkdir -p $out/etc
+        ln -s ${tzdir} $out/etc/zoneinfo
+        ln -s ${tzdir}/UTC $out/etc/localtime
+      '';
+    in [
+      steamPackages.steam-fonts
+      # Errors in output without those
+      pciutils
+      python2
+      # Games' dependencies
+      xlibs.xrandr
+      which
+      # Needed by gdialog, including in the steam-runtime
+      perl
+      # Open URLs
+      xdg_utils
+      # Zoneinfo
+      etc-zoneinfo
+      iana-etc
+    ] ++ lib.optional withJava jdk
+      ++ lib.optional withPrimus primus
+      ++ extraPkgs pkgs;
+
+  ldPath = map (x: "/steamrt/${steam-runtime-wrapped.arch}/" + x) steam-runtime-wrapped.libs
+           ++ lib.optionals (steam-runtime-wrapped-i686 != null) (map (x: "/steamrt/${steam-runtime-wrapped-i686.arch}/" + x) steam-runtime-wrapped-i686.libs);
+
+  runSh = writeScript "run.sh" ''
+    #!${stdenv.shell}
+    runtime_paths="${lib.concatStringsSep ":" ldPath}"
+    if [ "$1" == "--print-steam-runtime-library-paths" ]; then
+      echo "$runtime_paths"
+      exit 0
+    fi
+    export LD_LIBRARY_PATH="$runtime_paths:$LD_LIBRARY_PATH"
+    exec "$@"
+  '';
+
+in buildFHSUserEnv rec {
   name = "steam";
 
-  targetPkgs = pkgs:
-    [ pkgs.steam-original
-      pkgs.corefonts
-      pkgs.curl
-      pkgs.dbus
-      pkgs.dpkg
-      pkgs.mono
-      pkgs.python
-      pkgs.gnome2.zenity
-      pkgs.xdg_utils
-    ]
-    ++ lib.optional (config.steam.java or false) pkgs.jdk
-    ++ lib.optional (config.steam.primus or false) pkgs.primus
-    ;
+  targetPkgs = pkgs: with pkgs; [
+    steamPackages.steam
+    # License agreement
+    gnome3.zenity
+  ] ++ commonTargetPkgs pkgs;
 
-  multiPkgs = pkgs:
-    [ pkgs.cairo
-      pkgs.glib
-      pkgs.gtk
-      pkgs.gdk_pixbuf
-      pkgs.pango
+  multiPkgs = pkgs: with pkgs; [
+    # These are required by steam with proper errors
+    xlibs.libXcomposite
+    xlibs.libXtst
+    xlibs.libXrandr
+    xlibs.libXext
+    xlibs.libX11
+    xlibs.libXfixes
 
-      pkgs.freetype
-      pkgs.xlibs.libICE
-      pkgs.xlibs.libSM
-      pkgs.xlibs.libX11
-      pkgs.xlibs.libXau
-      pkgs.xlibs.libxcb
-      pkgs.xlibs.libXcursor
-      pkgs.xlibs.libXdamage
-      pkgs.xlibs.libXdmcp
-      pkgs.xlibs.libXext
-      pkgs.xlibs.libXfixes
-      pkgs.xlibs.libXi
-      pkgs.xlibs.libXinerama
-      pkgs.xlibs.libXrandr
-      pkgs.xlibs.libXrender
-      pkgs.xlibs.libXScrnSaver
-      pkgs.xlibs.libXtst
-      pkgs.xlibs.libXxf86vm
+    # Not formally in runtime but needed by some games
+    gst_all_1.gstreamer
+    gst_all_1.gst-plugins-ugly
+    libdrm
+    mono
+    xorg.xkeyboardconfig
+    xlibs.libpciaccess
 
-      pkgs.ffmpeg
-      pkgs.libpng12
-      pkgs.mesa
-      pkgs.SDL
-      pkgs.SDL2
+    (steamPackages.steam-runtime-wrapped.override {
+      inherit nativeOnly runtimeOnly;
+    })
+  ];
 
-      pkgs.libgcrypt
-      pkgs.zlib
+  extraBuildCommands = ''
+    mkdir -p steamrt
+    ln -s ../lib/steam-runtime steamrt/${steam-runtime-wrapped.arch}
+    ${lib.optionalString (steam-runtime-wrapped-i686 != null) ''
+      ln -s ../lib32/steam-runtime steamrt/${steam-runtime-wrapped-i686.arch}
+    ''}
+    ln -s ${runSh} steamrt/run.sh
+  '';
 
-      pkgs.alsaLib
-      pkgs.libvorbis
-      pkgs.openal
-      pkgs.libpulseaudio
-
-      pkgs.flashplayer
-
-      pkgs.gst_all_1.gst-plugins-ugly # "Audiosurf 2" needs this
-    ];
-
-  extraBuildCommandsMulti = ''
-    cd usr/lib
-    ln -sf ../lib64/steam steam
+  extraInstallCommands = ''
+    mkdir -p $out/share/applications
+    ln -s ${steam}/share/icons $out/share
+    ln -s ${steam}/share/pixmaps $out/share
+    sed "s,/usr/bin/steam,$out/bin/steam,g" ${steam}/share/applications/steam.desktop > $out/share/applications/steam.desktop
   '';
 
   profile = ''
-    # Ugly workaround for https://github.com/ValveSoftware/steam-for-linux/issues/3504
-    export LD_PRELOAD=/lib32/libpulse.so:/lib64/libpulse.so:/lib32/libasound.so:/lib64/libasound.so
+    export STEAM_RUNTIME=/steamrt
+    export TZDIR=/etc/zoneinfo
   '';
 
   runScript = "steam";
+
+  passthru.run = buildFHSUserEnv {
+    name = "steam-run";
+
+    targetPkgs = commonTargetPkgs;
+    inherit multiPkgs extraBuildCommands;
+
+    runScript = writeScript "steam-run" ''
+      #!${stdenv.shell}
+      run="$1"
+      if [ "$run" = "" ]; then
+        echo "Usage: steam-run command-to-run args..." >&2
+        exit 1
+      fi
+      shift
+      export LD_LIBRARY_PATH=${lib.concatStringsSep ":" ldPath}:$LD_LIBRARY_PATH
+      exec "$run" "$@"
+    '';
+  };
 }

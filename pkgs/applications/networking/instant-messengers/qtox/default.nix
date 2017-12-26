@@ -1,51 +1,45 @@
-{ stdenv, fetchFromGitHub, pkgconfig, libtoxcore, qt5, openal, opencv
-, libsodium, libXScrnSaver }:
+{ mkDerivation, lib, fetchFromGitHub, cmake, pkgconfig,
+  libtoxcore,
+  libpthreadstubs, libXdmcp, libXScrnSaver,
+  qtbase, qtsvg, qttools, qttranslations,
+  ffmpeg, filter-audio, libexif, libsodium, libopus,
+  libvpx, openal, opencv, pcre, qrencode, sqlcipher }:
 
-let
-
-  filteraudio = stdenv.mkDerivation rec {
-    name = "filter_audio-20150128";
-
-    src = fetchFromGitHub {
-      owner = "irungentoo";
-      repo = "filter_audio";
-      rev = "76428a6cda";
-      sha256 = "0c4wp9a7dzbj9ykfkbsxrkkyy0nz7vyr5map3z7q8bmv9pjylbk9";
-    };
-
-    doCheck = false;
-
-    makeFlags = "PREFIX=$(out)";
-  };
-
-in stdenv.mkDerivation rec {
-  name = "qtox-dev-20150130";
+mkDerivation rec {
+  name = "qtox-${version}";
+  version = "1.13.0";
 
   src = fetchFromGitHub {
-    owner = "tux3";
-    repo = "qTox";
-    rev = "7574569b3d";
-    sha256 = "0a7zkhl4w2r5ifzs7vwws2lpplp6q5c4jllyf4ld64njgiz6jzip";
+    owner  = "qTox";
+    repo   = "qTox";
+    rev    = "v${version}";
+    sha256 = "08x71p23d0sp0w11k8z3wf3k56iclmdq9x652n8ggidgyrdi9f6y";
   };
 
-  buildInputs =
-    [
-      libtoxcore openal opencv libsodium filteraudio
-      qt5.base qt5.tools libXScrnSaver
-    ];
-  nativeBuildInputs = [ pkgconfig ];
+  buildInputs = [
+    libtoxcore
+    libpthreadstubs libXdmcp libXScrnSaver
+    qtbase qtsvg qttranslations
+    ffmpeg filter-audio libexif libopus libsodium
+    libvpx openal opencv pcre qrencode sqlcipher
+  ];
 
-  configurePhase = "qmake";
+  nativeBuildInputs = [ cmake pkgconfig qttools ];
 
-  installPhase = ''
-    mkdir -p $out/bin
-    cp qtox $out/bin
-  '';
+  enableParallelBuilding = true;
 
-  meta = with stdenv.lib; {
-    description = "QT Tox client";
-    license = licenses.gpl3;
-    maintainers = with maintainers; [ viric jgeerds ];
-    platforms = platforms.all;
+  cmakeFlags = [
+    "-DGIT_DESCRIBE=${version}"
+    "-DENABLE_STATUSNOTIFIER=False"
+    "-DENABLE_GTK_SYSTRAY=False"
+    "-DENABLE_APPINDICATOR=False"
+  ];
+
+  meta = with lib; {
+    description = "Qt Tox client";
+    homepage    = https://tox.chat;
+    license     = licenses.gpl3;
+    maintainers = with maintainers; [ viric jgeerds akaWolf peterhoeg ];
+    platforms   = platforms.all;
   };
 }

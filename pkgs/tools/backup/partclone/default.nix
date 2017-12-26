@@ -1,20 +1,25 @@
-{stdenv, fetchurl
-, pkgconfig, libuuid
-, e2fsprogs
+{ stdenv, fetchFromGitHub, autoreconfHook
+, pkgconfig, libuuid, e2fsprogs
 }:
-stdenv.mkDerivation {
-  name = "partclone-stable";
-  enableParallelBuilding = true;
 
-  src = fetchurl {
-    url = https://codeload.github.com/Thomas-Tsai/partclone/legacy.tar.gz/stable;
-    sha256 = "0vvk6c26gf2wv5y0mxnz90bivgp84pi82qk5q5xkcz6nz3swals7";
-    name = "Thomas-Tsai-partclone-stable-0-gab3bd53.tar.gz";
+stdenv.mkDerivation rec {
+  name = "partclone-${version}";
+  version = "0.3.11";
+
+  src = fetchFromGitHub {
+    owner = "Thomas-Tsai";
+    repo = "partclone";
+    rev = version;
+    sha256 = "0bv15i0gxym4dv48rgaavh8p94waryn1l6viis6qh5zm9cd08skg";
   };
 
-  buildInputs = [e2fsprogs pkgconfig libuuid];
+  nativeBuildInputs = [ autoreconfHook pkgconfig ];
+  buildInputs = [
+    e2fsprogs libuuid stdenv.cc.libc
+    (stdenv.lib.getOutput "static" stdenv.cc.libc)
+  ];
 
-  installPhase = ''make INSTPREFIX=$out install'';
+  enableParallelBuilding = true;
 
   meta = {
     description = "Utilities to save and restore used blocks on a partition";

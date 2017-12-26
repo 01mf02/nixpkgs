@@ -1,23 +1,22 @@
-{ stdenv, fetchFromGitHub }:
+{ stdenv, fetchurl, fetchFromGitHub, linuxHeaders }:
 
 stdenv.mkDerivation rec {
   name = "trinity-${version}";
-  version = "1.5";
+  version = "1.8";
 
   src = fetchFromGitHub {
     owner = "kernelslacker";
     repo = "trinity";
     rev = "v${version}";
-    sha256 = "0diwkda6n7yw8plfanivncwangk2kv1acxv0kyk3ly5jhlajwc0s";
+    sha256 = "1ss6ir3ki2hnj4c8068v5bz8bpa43xqg9zlmzhgagi94g9l05qlf";
   };
 
-  patchPhase = ''
-    patchShebangs ./configure.sh
+  postPatch = ''
+    patchShebangs ./configure
     patchShebangs ./scripts/
-    substituteInPlace Makefile --replace '/usr/bin/wc' 'wc'
   '';
 
-  configurePhase = "./configure.sh";
+  enableParallelBuilding = true;
 
   installPhase = "make DESTDIR=$out install";
 

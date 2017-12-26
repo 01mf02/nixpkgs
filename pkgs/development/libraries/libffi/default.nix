@@ -1,4 +1,6 @@
-{ fetchurl, stdenv, dejagnu }:
+{ fetchurl, stdenv, dejagnu, doCheck ? false
+, buildPlatform, hostPlatform
+}:
 
 stdenv.mkDerivation rec {
   name = "libffi-3.2.1";
@@ -8,7 +10,13 @@ stdenv.mkDerivation rec {
     sha256 = "0dya49bnhianl0r65m65xndz6ls2jn1xngyn72gd28ls3n7bnvnh";
   };
 
-  patches = if stdenv.isCygwin then [ ./3.2.1-cygwin.patch ] else null;
+  patches = stdenv.lib.optional stdenv.isCygwin ./3.2.1-cygwin.patch ++
+    stdenv.lib.optional stdenv.isAarch64 (fetchurl {
+      url = https://src.fedoraproject.org/rpms/libffi/raw/ccffc1700abfadb0969495a6e51b964117fc03f6/f/libffi-aarch64-rhbz1174037.patch;
+      sha256 = "1vpirrgny43hp0885rswgv3xski8hg7791vskpbg3wdjdpb20wbc";
+    });
+
+  outputs = [ "out" "dev" "man" "info" ];
 
   buildInputs = stdenv.lib.optional doCheck dejagnu;
 
@@ -17,16 +25,20 @@ stdenv.mkDerivation rec {
     "--enable-pax_emutramp"
   ];
 
-  doCheck = stdenv.isLinux; # until we solve dejagnu problems on darwin and expect on BSD
+  inherit doCheck;
 
-  dontStrip = stdenv ? cross; # Don't run the native `strip' when cross-compiling.
+  dontStrip = hostPlatform != buildPlatform; # Don't run the native `strip' when cross-compiling.
 
-  # Install headers in the right place.
-  postInstall = ''
-    ln -s${if (stdenv.isFreeBSD || stdenv.isOpenBSD || stdenv.isDarwin) then "" else "r"}v "$out/lib/"libffi*/include "$out/include"
+  # Install headers and libs in the right places.
+  postFixup = ''
+    mkdir -p "$dev/"
+    mv "$out/lib/${name}/include" "$dev/include"
+    rmdir "$out/lib/${name}"
+    substituteInPlace "$dev/lib/pkgconfig/libffi.pc" \
+      --replace 'includedir=''${libdir}/libffi-3.2.1' "includedir=$dev"
   '';
 
-  meta = {
+  meta = with stdenv.lib; {
     description = "A foreign function call interface library";
     longDescription = ''
       The libffi library provides a portable, high level programming
@@ -44,8 +56,8 @@ stdenv.mkDerivation rec {
     '';
     homepage = http://sourceware.org/libffi/;
     # See http://github.com/atgreen/libffi/blob/master/LICENSE .
-    license = stdenv.lib.licenses.free;
+    license = licenses.free;
     maintainers = [ ];
-    platforms = stdenv.lib.platforms.all;
+    platforms = platforms.all;
   };
 }

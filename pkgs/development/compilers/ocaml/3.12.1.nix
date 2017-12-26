@@ -1,4 +1,4 @@
-{ stdenv, fetchurl, ncurses, x11 }:
+{ stdenv, fetchurl, ncurses, xlibsWrapper }:
 
 let
    useX11 = !stdenv.isArm && !stdenv.isMips;
@@ -8,7 +8,8 @@ in
 
 stdenv.mkDerivation rec {
   
-  name = "ocaml-3.12.1";
+  name = "ocaml-${version}";
+  version = "3.12.1";
   
   src = fetchurl {
     url = "http://caml.inria.fr/pub/distrib/ocaml-3.12/${name}.tar.bz2";
@@ -16,9 +17,9 @@ stdenv.mkDerivation rec {
   };
 
   prefixKey = "-prefix ";
-  configureFlags = ["-no-tk"] ++ optionals useX11 [ "-x11lib" x11 ];
+  configureFlags = ["-no-tk"] ++ optionals useX11 [ "-x11lib" xlibsWrapper ];
   buildFlags = "world" + optionalString useNativeCompilers " bootstrap world.opt";
-  buildInputs = [ncurses] ++ optionals useX11 [ x11 ];
+  buildInputs = [ncurses] ++ optionals useX11 [ xlibsWrapper ];
   installTargets = "install" + optionalString useNativeCompilers " installopt";
   patches = optionals stdenv.isDarwin [ ./3.12.1-darwin-fix-configure.patch ];
   preConfigure = ''
@@ -62,7 +63,7 @@ stdenv.mkDerivation rec {
         and a documentation generator (ocamldoc).
       '';
 
-    platforms = with platforms; linux ++ darwin;
+    platforms = with platforms; linux;
   };
 
 }

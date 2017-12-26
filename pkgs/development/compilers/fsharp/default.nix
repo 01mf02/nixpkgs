@@ -4,15 +4,18 @@
 
 stdenv.mkDerivation rec {
   name = "fsharp-${version}";
-  version = "3.1.1.32";
+  version = "4.0.1.1";
 
   src = fetchurl {
     url = "https://github.com/fsharp/fsharp/archive/${version}.tar.gz";
-    sha256 = "16kqgdx0y0lmxv59mc4g7l5ll60nixg5b8bg07vxfnqrf7i6dffd";
+    sha256 = "0mvmvwwpl4zq0yvgzdizww8l9azvlrc82xm32nz1fi1nw8x5qfqk";
   };
 
-  buildInputs = [ mono pkgconfig dotnetbuildhelpers autoconf automake which ];
+  nativeBuildInputs = [ pkgconfig ];
+  buildInputs = [ mono dotnetbuildhelpers autoconf automake which ];
+
   configurePhase = ''
+    sed -i '988d' src/FSharpSource.targets
     substituteInPlace ./autogen.sh --replace "/usr/bin/env sh" "/bin/sh"
     ./autogen.sh --prefix $out
   '';
@@ -37,9 +40,9 @@ stdenv.mkDerivation rec {
 
   meta = {
     description = "A functional CLI language";
-    homepage = "http://fsharp.org/";
+    homepage = http://fsharp.org/;
     license = stdenv.lib.licenses.asl20;
     maintainers = with stdenv.lib.maintainers; [ thoughtpolice raskin ];
-    platforms = with stdenv.lib.platforms; linux;
+    platforms = with stdenv.lib.platforms; unix;
   };
 }

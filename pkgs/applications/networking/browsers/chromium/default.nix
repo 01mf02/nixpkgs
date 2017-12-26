@@ -1,38 +1,33 @@
-{ newScope, stdenv, makeWrapper, makeDesktopItem
+{ newScope, stdenv, makeWrapper, makeDesktopItem, ed
+, glib, gtk3, gnome3, gsettings_desktop_schemas
 
 # package customization
 , channel ? "stable"
-, enableSELinux ? false
 , enableNaCl ? false
-, useOpenSSL ? false
-, gnomeSupport ? false
+, enableHotwording ? false
+, gnomeSupport ? false, gnome ? null
 , gnomeKeyringSupport ? false
 , proprietaryCodecs ? true
 , enablePepperFlash ? false
 , enableWideVine ? false
 , cupsSupport ? true
 , pulseSupport ? false
-, hiDPISupport ? false
+, commandLineArgs ? ""
 }:
 
 let
   callPackage = newScope chromium;
 
   chromium = {
-    source = callPackage ./source {
-      inherit channel;
-      # XXX: common config
-      inherit useOpenSSL;
-    };
+    upstream-info = (callPackage ./update.nix {}).getChannel channel;
 
     mkChromiumDerivation = callPackage ./common.nix {
-      inherit enableSELinux enableNaCl useOpenSSL gnomeSupport
-              gnomeKeyringSupport proprietaryCodecs cupsSupport
-              pulseSupport hiDPISupport;
+      inherit enableNaCl enableHotwording gnomeSupport gnome
+              gnomeKeyringSupport proprietaryCodecs cupsSupport pulseSupport
+              enableWideVine;
     };
 
-    browser = callPackage ./browser.nix { };
-    sandbox = callPackage ./sandbox.nix { };
+    browser = callPackage ./browser.nix { inherit channel; };
 
     plugins = callPackage ./plugins.nix {
       inherit enablePepperFlash enableWideVine;
@@ -40,9 +35,9 @@ let
   };
 
   desktopItem = makeDesktopItem {
-    name = "chromium";
-    exec = "chromium";
-    icon = "${chromium.browser}/share/icons/hicolor/48x48/apps/chromium.png";
+    name = "chromium-browser";
+    exec = "chromium %U";
+    icon = "chromium";
     comment = "An open source web browser from Google";
     desktopName = "Chromium";
     genericName = "Web browser";
@@ -59,40 +54,80 @@ let
       "x-scheme-handler/unknown"
     ];
     categories = "Network;WebBrowser";
+    extraEntries = ''
+      StartupWMClass=chromium-browser
+    '';
   };
 
   suffix = if channel != "stable" then "-" + channel else "";
 
-in stdenv.mkDerivation {
-  name = "chromium${suffix}-${chromium.browser.version}";
+  sandboxExecutableName = chromium.browser.passthru.sandboxExecutableName;
 
-  buildInputs = [ makeWrapper ] ++ chromium.plugins.enabledPlugins;
+  version = chromium.browser.version;
+
+  inherit (stdenv.lib) versionAtLeast;
+
+in stdenv.mkDerivation {
+  name = "chromium${suffix}-${version}";
+  inherit version;
+
+  buildInputs = [
+    makeWrapper ed
+
+    # needed for GSETTINGS_SCHEMAS_PATH
+    gsettings_desktop_schemas glib gtk3
+
+    # needed for XDG_ICON_DIRS
+    gnome3.defaultIconTheme
+  ];
+
+  outputs = ["out" "sandbox"];
 
   buildCommand = let
     browserBinary = "${chromium.browser}/libexec/chromium/chromium";
-    sandboxBinary = "${chromium.sandbox}/bin/chromium-sandbox";
-    mkEnvVar = key: val: "--set '${key}' '${val}'";
-    envVars = chromium.plugins.settings.envVars or {};
-    isVer42 = !stdenv.lib.versionOlder chromium.browser.version "42.0.0.0";
-    flags = chromium.plugins.settings.flags or [];
-    setBinPath = "--set CHROMIUM_SANDBOX_BINARY_PATH \"${sandboxBinary}\"";
+    getWrapperFlags = plugin: "$(< \"${plugin}/nix-support/wrapper-flags\")";
   in with stdenv.lib; ''
-    mkdir -p "$out/bin" "$out/share/applications"
+    mkdir -p "$out/bin"
 
-    ln -s "${chromium.browser}/share" "$out/share"
-    makeWrapper "${browserBinary}" "$out/bin/chromium" \
-      ${optionalString (!isVer42) setBinPath} \
-      ${concatStrings (mapAttrsToList mkEnvVar envVars)} \
-      --add-flags "${concatStringsSep " " flags}"
+    eval makeWrapper "${browserBinary}" "$out/bin/chromium" \
+      ${commandLineArgs} \
+      ${concatMapStringsSep " " getWrapperFlags chromium.plugins.enabled}
+
+    ed -v -s "$out/bin/chromium" << EOF
+    2i
+
+    if [ -x "/run/wrappers/bin/${sandboxExecutableName}" ]
+    then
+      export CHROME_DEVEL_SANDBOX="/run/wrappers/bin/${sandboxExecutableName}"
+    else
+      export CHROME_DEVEL_SANDBOX="$sandbox/bin/${sandboxExecutableName}"
+    fi
+
+    # libredirect causes chromium to deadlock on startup
+    export LD_PRELOAD="\$(echo -n "\$LD_PRELOAD" | tr ':' '\n' | grep -v /lib/libredirect\\\\.so$ | tr '\n' ':')"
+
+    export XDG_DATA_DIRS=$XDG_ICON_DIRS:$GSETTINGS_SCHEMAS_PATH\''${XDG_DATA_DIRS:+:}\$XDG_DATA_DIRS
+
+    .
+    w
+    EOF
+
+    ln -sv "${chromium.browser.sandbox}" "$sandbox"
 
     ln -s "$out/bin/chromium" "$out/bin/chromium-browser"
-    ln -s "${chromium.browser}/share/icons" "$out/share/icons"
+
+    mkdir -p "$out/share/applications"
+    for f in '${chromium.browser}'/share/*; do
+      ln -s -t "$out/share/" "$f"
+    done
     cp -v "${desktopItem}/share/applications/"* "$out/share/applications"
   '';
 
   inherit (chromium.browser) meta packageName;
 
   passthru = {
+    inherit (chromium) upstream-info browser;
     mkDerivation = chromium.mkChromiumDerivation;
+    inherit sandboxExecutableName;
   };
 }

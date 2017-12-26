@@ -1,11 +1,12 @@
 { stdenv, fetchurl, cmake, pkgconfig, qt }:
 
 stdenv.mkDerivation rec {
-  name = "qca-2.1.0";
+  name = "qca-${version}";
+  version = "2.1.3";
 
   src = fetchurl {
-    url = "http://delta.affinix.com/download/qca/2.0/${name}.tar.gz";
-    sha256 = "114jg97fmg1rb4llfg7x7r68lxdkjrx60qsqq76khdwc2dvcsv92";
+    url = "http://download.kde.org/stable/qca/${version}/src/qca-${version}.tar.xz";
+    sha256 = "0lz3n652z208daxypdcxiybl0a9fnn6ida0q7fh5f42269mdhgq0";
   };
 
   nativeBuildInputs = [ cmake pkgconfig ];
@@ -17,6 +18,7 @@ stdenv.mkDerivation rec {
     description = "Qt Cryptographic Architecture";
     license = "LGPL";
     homepage = http://delta.affinix.com/qca;
-    maintainers = [ maintainers.sander maintainers.urkud ];
+    maintainers = [ maintainers.sander ];
+    platforms = platforms.linux;
   };
 }

@@ -1,14 +1,15 @@
 { stdenv, fetchurl, pkgconfig, udev }:
 
 stdenv.mkDerivation rec {
-  name = "dhcpcd-6.9.0";
+  name = "dhcpcd-6.11.5";
 
   src = fetchurl {
-    url = "mirror://roy/dhcpcd/${name}.tar.bz2";
-    sha256 = "0s0a29ml9x108lxv5yz55f3l5kvlx4hcbxigfq3hr245yy7aarhm";
+    url = "mirror://roy/dhcpcd/${name}.tar.xz";
+    sha256 = "17nnhxmbdcc7k2mh6sgvxisqcqbic5540xbig363ds97gvf795kg";
   };
 
-  buildInputs = [ pkgconfig udev ];
+  nativeBuildInputs = [ pkgconfig ];
+  buildInputs = [ udev ];
 
   configureFlags = [
     "--sysconfdir=/etc"
@@ -26,8 +27,8 @@ stdenv.mkDerivation rec {
 
   meta = {
     description = "A client for the Dynamic Host Configuration Protocol (DHCP)";
-    homepage = http://roy.marples.name/projects/dhcpcd;
+    homepage = https://roy.marples.name/projects/dhcpcd;
     platforms = stdenv.lib.platforms.linux;
-    maintainers = [ stdenv.lib.maintainers.eelco ];
+    maintainers = with stdenv.lib.maintainers; [ eelco fpletz ];
   };
 }

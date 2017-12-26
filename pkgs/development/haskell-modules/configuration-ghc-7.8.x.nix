@@ -1,6 +1,6 @@
-{ pkgs }:
+{ pkgs, haskellLib }:
 
-with import ./lib.nix { inherit pkgs; };
+with haskellLib;
 
 self: super: {
 
@@ -37,8 +37,11 @@ self: super: {
   unix = null;
   xhtml = null;
 
+  # Requires ghc 8.2
+  ghc-proofs = dontDistribute super.ghc-proofs;
+
   # https://github.com/peti/jailbreak-cabal/issues/9
-  jailbreak-cabal = super.jailbreak-cabal.override { Cabal = dontJailbreak self.Cabal_1_20_0_3; };
+  jailbreak-cabal = super.jailbreak-cabal.override { Cabal = self.Cabal_1_20_0_4; };
 
   # mtl 2.2.x needs the latest transformers.
   mtl_2_2_1 = super.mtl.override { transformers = self.transformers_0_4_3_0; };
@@ -52,7 +55,7 @@ self: super: {
   haddock-api = super.haddock-api_2_15_0_2;
 
   # This is part of bytestring in our compiler.
-  bytestring-builder = triggerRebuild (dontHaddock super.bytestring-builder) 1;
+  bytestring-builder = dontHaddock super.bytestring-builder;
 
   # Won't compile against mtl 2.1.x.
   imports = super.imports.override { mtl = self.mtl_2_2_1; };
@@ -65,7 +68,7 @@ self: super: {
     mkDerivation = drv: super.mkDerivation (drv // { doCheck = false; });
     mtl = super.mtl_2_2_1;
     transformers = super.transformers_0_4_3_0;
-    haskeline = self.haskeline_0_7_2_1;
+    haskeline = self.haskeline_0_7_3_1;
     transformers-compat = disableCabalFlag super.transformers-compat "three";
   })) (drv: {});
 
@@ -83,10 +86,6 @@ self: super: {
   # Newer versions require transformers 0.4.x.
   seqid = super.seqid_0_1_0;
   seqid-streams = super.seqid-streams_0_1_0;
-
-  # Need binary >= 0.7.2, but our compiler has only 0.7.1.0.
-  hosc = super.hosc.overrideScope (self: super: { binary = self.binary_0_7_5_0; });
-  tidal-midi = super.tidal-midi.overrideScope (self: super: { binary = self.binary_0_7_5_0; });
 
   # These packages need mtl 2.2.x directly or indirectly via dependencies.
   amazonka = markBroken super.amazonka;
@@ -116,21 +115,57 @@ self: super: {
                                           self.webkitgtk3-javascriptcore ];
 
   # Needs hashable on pre 7.10.x compilers.
+  nats_1 = addBuildDepend super.nats_1 self.hashable;
   nats = addBuildDepend super.nats self.hashable;
 
   # needs mtl-compat to build with mtl 2.1.x
   cgi = addBuildDepend super.cgi self.mtl-compat;
 
-  # Newer versions always trigger the non-deterministic library ID bug
-  # and are virtually impossible to compile on Hydra.
-  conduit = super.conduit_1_2_4_1;
-
   # https://github.com/magthe/sandi/issues/7
   sandi = overrideCabal super.sandi (drv: {
-    patchPhase = "sed -i -e 's|base ==4.8.*,|base,|' sandi.cabal"; }
-  );
+    postPatch = "sed -i -e 's|base ==4.8.*,|base,|' sandi.cabal";
+  });
 
   # Overriding mtl 2.2.x is fine here because ghc-events is an stand-alone executable.
   ghc-events = super.ghc-events.override { mtl = self.mtl_2_2_1; };
+
+  # The network library is required in configurations that don't have network-uri.
+  hxt = addBuildDepend super.hxt self.network;
+  hxt_9_3_1_7 = addBuildDepend super.hxt_9_3_1_7 self.network;
+  hxt_9_3_1_10 = addBuildDepend super.hxt_9_3_1_10 self.network;
+  hxt_9_3_1_12 = addBuildDepend super.hxt_9_3_1_12 self.network;
+  xss-sanitize = addBuildDepend super.xss-sanitize self.network;
+  xss-sanitize_0_3_5_4 = addBuildDepend super.xss-sanitize_0_3_5_4 self.network;
+  xss-sanitize_0_3_5_5 = addBuildDepend super.xss-sanitize_0_3_5_5 self.network;
+
+  # Needs void on pre 7.10.x compilers.
+  conduit = addBuildDepend super.conduit self.void;
+  conduit_1_2_5 = addBuildDepend super.conduit_1_2_5 self.void;
+
+  # Breaks a dependency cycle between QuickCheck and semigroups
+  hashable = dontCheck super.hashable;
+  unordered-containers = dontCheck super.unordered-containers;
+
+  # Needs additional inputs on old compilers.
+  semigroups = addBuildDepends (dontCheck super.semigroups) (with self; [nats tagged unordered-containers]);
+  lens = addBuildDepends super.lens (with self; [doctest generic-deriving nats simple-reflect]);
+  distributive = addBuildDepend (dontCheck super.distributive) self.semigroups;
+  QuickCheck = addBuildDepends super.QuickCheck (with self; [nats semigroups]);
+  void = addBuildDepends super.void (with self; [hashable semigroups]);
+  optparse-applicative = addBuildDepend super.optparse-applicative self.semigroups;
+  vector = addBuildDepend super.vector self.semigroups;
+
+  # Haddock doesn't cope with the new markup.
+  bifunctors = dontHaddock super.bifunctors;
+
+  # extra-test: <stdout>: hFlush: invalid argument (Bad file descriptor)
+  extra = dontCheck super.extra;
+
+  # The test suite requires Cabal 1.24.x or later to compile.
+  comonad = dontCheck super.comonad;
+  semigroupoids = dontCheck super.semigroupoids;
+
+  # https://github.com/simonmar/happy/issues/103
+  happy = super.happy.override { mtl = self.mtl_2_2_1; };
 
 }

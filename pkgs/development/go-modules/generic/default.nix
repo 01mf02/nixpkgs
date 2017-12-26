@@ -1,6 +1,10 @@
-{ go, govers, lib }:
+{ go, govers, parallel, lib, fetchgit, fetchhg, fetchbzr, rsync
+, removeReferencesTo, fetchFromGitHub }:
 
-{ name, buildInputs ? [], passthru ? {}
+{ name, buildInputs ? [], nativeBuildInputs ? [], passthru ? {}, preFixup ? ""
+
+# We want parallel builds by default
+, enableParallelBuilding ? true
 
 # Disabled flag
 , disabled ? false
@@ -14,21 +18,68 @@
 # Extra sources to include in the gopath
 , extraSrcs ? [ ]
 
+# Extra gopaths containing src subfolder
+# with sources to include in the gopath
+, extraSrcPaths ? [ ]
+
+# go2nix dependency file
+, goDeps ? null
+
 , dontRenameImports ? false
+
+# Do not enable this without good reason
+# IE: programs coupled with the compiler
+, allowGoReference ? false
 
 , meta ? {}, ... } @ args':
 
 if disabled then throw "${name} not supported for go ${go.meta.branch}" else
 
+with builtins;
+
 let
   args = lib.filterAttrs (name: _: name != "extraSrcs") args';
+
+  removeReferences = [ ] ++ lib.optional (!allowGoReference) go;
+
+  removeExpr = refs: ''remove-references-to ${lib.concatMapStrings (ref: " -t ${ref}") refs}'';
+
+  dep2src = goDep:
+    {
+      inherit (goDep) goPackagePath;
+      src = if goDep.fetch.type == "git" then
+        fetchgit {
+          inherit (goDep.fetch) url rev sha256;
+        }
+      else if goDep.fetch.type == "hg" then
+        fetchhg {
+          inherit (goDep.fetch) url rev sha256;
+        }
+      else if goDep.fetch.type == "bzr" then
+        fetchbzr {
+          inherit (goDep.fetch) url rev sha256;
+        }
+      else if goDep.fetch.type == "FromGitHub" then
+        fetchFromGitHub {
+          inherit (goDep.fetch) owner repo rev sha256;
+        }
+      else abort "Unrecognized package fetch type: ${goDep.fetch.type}";
+    };
+
+  importGodeps = { depsFile }:
+    map dep2src (import depsFile);
+
+  goPath = if goDeps != null then importGodeps { depsFile = goDeps; } ++ extraSrcs
+                             else extraSrcs;
 in
 
 go.stdenv.mkDerivation (
   (builtins.removeAttrs args [ "goPackageAliases" "disabled" ]) // {
 
-  name = "go${go.meta.branch}-${name}";
-  buildInputs = [ go ] ++ buildInputs ++ (lib.optional (!dontRenameImports) govers) ;
+  inherit name;
+  nativeBuildInputs = [ removeReferencesTo go parallel ]
+    ++ (lib.optional (!dontRenameImports) govers) ++ nativeBuildInputs;
+  buildInputs = [ go ] ++ buildInputs;
 
   configurePhase = args.configurePhase or ''
     runHook preConfigure
@@ -38,16 +89,19 @@ go.stdenv.mkDerivation (
     mkdir -p "go/src/$(dirname "$goPackagePath")"
     mv "$sourceRoot" "go/src/$goPackagePath"
 
-  '' + lib.flip lib.concatMapStrings extraSrcs ({ src, goPackagePath }: ''
-    mkdir extraSrc
-    (cd extraSrc; unpackFile "${src}")
+  '' + lib.flip lib.concatMapStrings goPath ({ src, goPackagePath }: ''
+    mkdir goPath
+    (cd goPath; unpackFile "${src}")
     mkdir -p "go/src/$(dirname "${goPackagePath}")"
-    chmod -R u+w extraSrc/*
-    mv extraSrc/* "go/src/${goPackagePath}"
-    rmdir extraSrc
+    chmod -R u+w goPath/*
+    mv goPath/* "go/src/${goPackagePath}"
+    rmdir goPath
+
+  '') + (lib.optionalString (extraSrcPaths != []) ''
+    ${rsync}/bin/rsync -a ${lib.concatMapStrings (p: "${p}/src") extraSrcPaths} go
 
   '') + ''
-    GOPATH=$NIX_BUILD_TOP/go:$GOPATH
+    export GOPATH=$NIX_BUILD_TOP/go:$GOPATH
 
     runHook postConfigure
   '';
@@ -65,27 +119,48 @@ go.stdenv.mkDerivation (
 
     runHook renameImports
 
-    if [ -n "$subPackages" ] ; then
-        for p in $subPackages ; do
-            go install $buildFlags "''${buildFlagsArray[@]}" -p $NIX_BUILD_CORES -v $goPackagePath/$p
-        done
+    buildGoDir() {
+      local d; local cmd;
+      cmd="$1"
+      d="$2"
+      . $TMPDIR/buildFlagsArray
+      echo "$d" | grep -q "\(/_\|examples\|Godeps\)" && return 0
+      [ -n "$excludedPackages" ] && echo "$d" | grep -q "$excludedPackages" && return 0
+      local OUT
+      if ! OUT="$(go $cmd $buildFlags "''${buildFlagsArray[@]}" -v $d 2>&1)"; then
+        if ! echo "$OUT" | grep -qE '(no( buildable| non-test)?|build constraints exclude all) Go (source )?files'; then
+          echo "$OUT" >&2
+          return 1
+        fi
+      fi
+      if [ -n "$OUT" ]; then
+        echo "$OUT" >&2
+      fi
+      return 0
+    }
+
+    getGoDirs() {
+      local type;
+      type="$1"
+      if [ -n "$subPackages" ]; then
+        echo "$subPackages" | sed "s,\(^\| \),\1$goPackagePath/,g"
+      else
+        pushd "$NIX_BUILD_TOP/go/src" >/dev/null
+        find "$goPackagePath" -type f -name \*$type.go -exec dirname {} \; | grep -v "/vendor/" | sort | uniq
+        popd >/dev/null
+      fi
+    }
+
+    if [ ''${#buildFlagsArray[@]} -ne 0 ]; then
+      declare -p buildFlagsArray > $TMPDIR/buildFlagsArray
     else
-        (cd go/src
-        find $goPackagePath -type f -name \*.go -exec dirname {} \; | sort | uniq | while read d; do
-            echo "$d" | grep -q "/_" && continue
-            [ -n "$excludedPackages" ] && echo "$d" | grep -q "$excludedPackages" && continue
-            local OUT
-            if ! OUT="$(go install $buildFlags "''${buildFlagsArray[@]}" -p $NIX_BUILD_CORES -v $d 2>&1)"; then
-                if ! echo "$OUT" | grep -q 'no buildable Go source files'; then
-                    echo "$OUT" >&2
-                    exit 1
-                fi
-            fi
-            if [ -n "$OUT" ]; then
-              echo "$OUT" >&2
-            fi
-        done)
+      touch $TMPDIR/buildFlagsArray
     fi
+    export -f buildGoDir # parallel needs to see the function
+    if [ -z "$enableParallelBuilding" ]; then
+        export NIX_BUILD_CORES=1
+    fi
+    getGoDirs "" | parallel -j $NIX_BUILD_CORES buildGoDir install
 
     runHook postBuild
   '';
@@ -93,16 +168,7 @@ go.stdenv.mkDerivation (
   checkPhase = args.checkPhase or ''
     runHook preCheck
 
-    if [ -n "$subPackages" ] ; then
-        for p in $subPackages ; do
-            go test -p $NIX_BUILD_CORES -v $goPackagePath/$p
-        done
-    else
-        (cd go/src
-        find $goPackagePath -type f -name \*_test.go -exec dirname {} \; | sort | uniq | while read d; do
-            go test -p $NIX_BUILD_CORES -v $d
-        done)
-    fi
+    getGoDirs test | parallel -j $NIX_BUILD_CORES buildGoDir test
 
     runHook postCheck
   '';
@@ -111,30 +177,54 @@ go.stdenv.mkDerivation (
     runHook preInstall
 
     mkdir -p $out
+    pushd "$NIX_BUILD_TOP/go"
+    while read f; do
+      echo "$f" | grep -q '^./\(src\|pkg/[^/]*\)/${goPackagePath}' || continue
+      mkdir -p "$(dirname "$out/share/go/$f")"
+      cp "$NIX_BUILD_TOP/go/$f" "$out/share/go/$f"
+    done < <(find . -type f)
+    popd
 
-    if [ -z "$dontInstallSrc" ]; then
-        (cd "$NIX_BUILD_TOP/go"
-        find . -type f | while read f; do
-          echo "$f" | grep -q '^./\(src\|pkg/[^/]*\)/${goPackagePath}' || continue
-          mkdir -p "$(dirname "$out/share/go/$f")"
-          cp $NIX_BUILD_TOP/go/$f $out/share/go/$f
-        done)
-    fi
-
+    mkdir -p $bin
     dir="$NIX_BUILD_TOP/go/bin"
-    [ -e "$dir" ] && cp -r $dir $out
+    [ -e "$dir" ] && cp -r $dir $bin
 
     runHook postInstall
   '';
 
-  passthru = passthru // lib.optionalAttrs (goPackageAliases != []) { inherit goPackageAliases; };
+  preFixup = preFixup + ''
+    find $bin/bin -type f -exec ${removeExpr removeReferences} '{}' + || true
+  '';
+
+  shellHook = ''
+    d=$(mktemp -d "--suffix=-$name")
+  '' + toString (map (dep: ''
+     mkdir -p "$d/src/$(dirname "${dep.goPackagePath}")"
+     ln -s "${dep.src}" "$d/src/${dep.goPackagePath}"
+  ''
+  ) goPath) + ''
+    export GOPATH=${lib.concatStringsSep ":" ( ["$d"] ++ ["$GOPATH"] ++ ["$PWD"] ++ extraSrcPaths)}
+  '';
+
+  disallowedReferences = lib.optional (!allowGoReference) go
+    ++ lib.optional (!dontRenameImports) govers;
+
+  passthru = passthru //
+    { inherit go; } //
+    lib.optionalAttrs (goPackageAliases != []) { inherit goPackageAliases; };
+
+  enableParallelBuilding = enableParallelBuilding;
+
+  # I prefer to call this dev but propagatedBuildInputs expects $out to exist
+  outputs = args.outputs or [ "bin" "out" ];
 
   meta = {
     # Add default meta information
-    platforms = lib.platforms.all;
+    homepage = "https://${goPackagePath}";
+    platforms = go.meta.platforms or lib.platforms.all;
   } // meta // {
     # add an extra maintainer to every package
     maintainers = (meta.maintainers or []) ++
-                  [ lib.maintainers.emery lib.maintainers.lethalman ];
+                  [ lib.maintainers.ehmry lib.maintainers.lethalman ];
   };
 })

@@ -1,7 +1,7 @@
-{ stdenv, fetchFromGitHub, pkgconfig, nettools, gettext, libtool
-, readline ? null, openssl ? null, python ? null, ncurses ? null
+{ stdenv, fetchFromGitHub, pkgconfig, nettools, gettext, libtool, flex
+, readline ? null, openssl ? null, python2 ? null, ncurses ? null, rocksdb
 , sqlite ? null, postgresql ? null, libmysql ? null, zlib ? null, lzo ? null
-, acl ? null, glusterfs ? null, libceph ? null, libcap ? null
+, jansson ? null, acl ? null, glusterfs ? null, libceph ? null, libcap ? null
 }:
 
 assert sqlite != null || postgresql != null || libmysql != null;
@@ -12,19 +12,20 @@ let
 in
 stdenv.mkDerivation rec {
   name = "bareos-${version}";
-  version = "14.2.4";
+  version = "15.2.4";
 
   src = fetchFromGitHub {
     owner = "bareos";
     repo = "bareos";
     rev = "Release/${version}";
     name = "${name}-src";
-    sha256 = "0shb91pawdgrn6rb4np3zyyxv36899nvwf8jaihkg0wvb01viqzr";
+    sha256 = "02k6wmr2n12dc6vwda8xczmbqidg6fs8nfg9n2cwwpm3k1a21qnd";
   };
 
+  nativeBuildInputs = [ pkgconfig ];
   buildInputs = [
-    pkgconfig nettools gettext readline openssl python
-    ncurses sqlite postgresql libmysql zlib lzo acl glusterfs libceph libcap
+    nettools gettext readline openssl python2 flex ncurses sqlite postgresql
+    libmysql zlib lzo jansson acl glusterfs libceph libcap rocksdb
   ];
 
   postPatch = ''
@@ -49,22 +50,26 @@ stdenv.mkDerivation rec {
     "--enable-dynamic-cats-backends"
     "--enable-sql-pooling"
     "--enable-scsi-crypto"
-  ] ++ optionals (readline != null) [ "--disable-conio" "--enable-readline" "--with-readline=${readline}" ]
-    ++ optional (python != null) "--with-python=${python}"
-    ++ optional (openssl != null) "--with-openssl=${openssl}"
-    ++ optional (sqlite != null) "--with-sqlite3=${sqlite}"
+  ] ++ optionals (readline != null) [ "--disable-conio" "--enable-readline" "--with-readline=${readline.dev}" ]
+    ++ optional (python2 != null) "--with-python=${python2}"
+    ++ optional (openssl != null) "--with-openssl=${openssl.dev}"
+    ++ optional (sqlite != null) "--with-sqlite3=${sqlite.dev}"
     ++ optional (postgresql != null) "--with-postgresql=${postgresql}"
-    ++ optional (libmysql != null) "--with-mysql=${libmysql}"
-    ++ optional (zlib != null) "--with-zlib=${zlib}"
+    ++ optional (libmysql != null) "--with-mysql=${libmysql.dev}"
+    ++ optional (zlib != null) "--with-zlib=${zlib.dev}"
     ++ optional (lzo != null) "--with-lzo=${lzo}"
+    ++ optional (jansson != null) "--with-jansson=${jansson}"
     ++ optional (acl != null) "--enable-acl"
     ++ optional (glusterfs != null) "--with-glusterfs=${glusterfs}"
     ++ optional (libceph != null) "--with-cephfs=${libceph}";
 
   installFlags = [
     "sysconfdir=\${out}/etc"
+    "confdir=\${out}/etc/bareos"
+    "scriptdir=\${out}/etc/bareos"
     "working_dir=\${TMPDIR}"
     "log_dir=\${TMPDIR}"
+    "sbindir=\${out}/bin"
   ];
 
   meta = with stdenv.lib; {

@@ -2,17 +2,19 @@
 , libnetfilter_conntrack, libnl, libpcap, libsodium, liburcu, ncurses, perl
 , pkgconfig, zlib }:
 
-let version = "0.5.9-10-gb7ece46"; in
-stdenv.mkDerivation {
+stdenv.mkDerivation rec {
   name = "netsniff-ng-${version}";
+  version = "0.6.2";
 
   # Upstream recommends and supports git
   src = fetchFromGitHub rec {
     repo = "netsniff-ng";
     owner = repo;
-    rev = "b7ece46f62b1fbece160cc7bd2905a6d0d3970a9";
-    sha256 = "1m44ssvkzp4xrkwc61gsmn2vkbmf9r5mp1zjz8cj8w120703cljj";
+    rev = "v${version}";
+    sha256 = "1lz4hwgwdq3znlqjmvl7cw3g3ilbayn608h0hwqdf7v2jq6n67kg";
   };
+
+  patches = [ ./glibc-2.26.patch ];
 
   buildInputs = [ bison flex geoip geolite-legacy libcli libnet libnl
     libnetfilter_conntrack libpcap libsodium liburcu ncurses perl
@@ -22,26 +24,25 @@ stdenv.mkDerivation {
   configurePhase = ''
     patchShebangs configure
     substituteInPlace configure --replace "which" "command -v"
-    NACL_INC_DIR=${libsodium}/include/sodium NACL_LIB=sodium ./configure
+    NACL_INC_DIR=${libsodium.dev}/include/sodium NACL_LIB=sodium ./configure
   '';
 
   enableParallelBuilding = true;
 
   # All files installed to /etc are just static data that can go in the store
-  makeFlags = "PREFIX=$(out) ETCDIR=$(out)/etc";
+  makeFlags = [ "PREFIX=$(out)" "ETCDIR=$(out)/etc" ];
 
   postInstall = ''
     ln -sv ${geolite-legacy}/share/GeoIP/GeoIP.dat		$out/etc/netsniff-ng/country4.dat
     ln -sv ${geolite-legacy}/share/GeoIP/GeoIPv6.dat		$out/etc/netsniff-ng/country6.dat
-    ln -sv ${geolite-legacy}/share/GeoIP/GeoLiteCity.dat	$out/etc/netsniff-ng/city4.dat
-    ln -sv ${geolite-legacy}/share/GeoIP/GeoLiteCityv6.dat	$out/etc/netsniff-ng/city6.dat
+    ln -sv ${geolite-legacy}/share/GeoIP/GeoIPCity.dat		$out/etc/netsniff-ng/city4.dat
+    ln -sv ${geolite-legacy}/share/GeoIP/GeoIPCityv6.dat	$out/etc/netsniff-ng/city6.dat
     ln -sv ${geolite-legacy}/share/GeoIP/GeoIPASNum.dat		$out/etc/netsniff-ng/asname4.dat
     ln -sv ${geolite-legacy}/share/GeoIP/GeoIPASNumv6.dat	$out/etc/netsniff-ng/asname6.dat
     rm -v $out/etc/netsniff-ng/geoip.conf # updating databases after installation is impossible
   '';
 
   meta = with stdenv.lib; {
-    inherit version;
     description = "Swiss army knife for daily Linux network plumbing";
     longDescription = ''
       netsniff-ng is a free Linux networking toolkit. Its gain of performance
@@ -52,7 +53,7 @@ stdenv.mkDerivation {
     '';
     homepage = http://netsniff-ng.org/;
     license = licenses.gpl2;
-    platforms = with platforms; linux;
+    platforms = platforms.linux;
     maintainers = with maintainers; [ nckx ];
   };
 }

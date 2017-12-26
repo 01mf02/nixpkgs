@@ -12,12 +12,10 @@ stdenv.mkDerivation rec {
   meta = {
     description = "A random number generator daemon";
 
-    homepage = http://sourceforge.net/projects/gkernel;
+    homepage = https://sourceforge.net/projects/gkernel;
 
     license = stdenv.lib.licenses.gpl2;
 
     platforms = stdenv.lib.platforms.linux;
-
-    maintainers = [ stdenv.lib.maintainers.shlevy ];
   };
 }

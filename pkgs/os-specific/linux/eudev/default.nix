@@ -1,23 +1,28 @@
-{stdenv, fetchurl, pkgconfig, glib, gperf, utillinux}:
+{stdenv, fetchurl, pkgconfig, glib, gperf, utillinux, kmod}:
 let
   s = # Generated upstream information
   rec {
     baseName="eudev";
-    version = "3.1.1";
+    version = "3.2.4";
     name="${baseName}-${version}";
     url="http://dev.gentoo.org/~blueness/eudev/eudev-${version}.tar.gz";
-    sha256 = "1r1jbk1fwc4wl0ifm7xzkb2vjd8w1a39hx6mmy4pp4fl2gvcg86k";
+    sha256 = "1vbg2k5mngyxdcdw4jkkzxbwdgrcr643hkby1whz7x91kg4g9p6x";
   };
+
+  nativeBuildInputs = [ pkgconfig ];
   buildInputs = [
-    glib pkgconfig gperf utillinux
+    glib gperf utillinux kmod
   ];
 in
 stdenv.mkDerivation {
   inherit (s) name version;
-  inherit buildInputs;
+  inherit nativeBuildInputs buildInputs;
   src = fetchurl {
     inherit (s) url sha256;
   };
+  patches = [
+  ];
+
   configureFlags = [
     "--localstatedir=/var"
     "--sysconfdir=/etc"
@@ -26,6 +31,12 @@ stdenv.mkDerivation {
     "hwdb_bin=/var/lib/udev/hwdb.bin"
     "udevrulesdir=/etc/udev/rules.d"
     ];
+
+  preInstall = ''
+    # Disable install-exec-hook target as it conflicts with our move-sbin setup-hook
+    sed -i 's;$(MAKE) $(AM_MAKEFLAGS) install-exec-hook;$(MAKE) $(AM_MAKEFLAGS);g' src/udev/Makefile
+  '';
+
   installFlags =
     [
     "localstatedir=$(TMPDIR)/var"
@@ -42,7 +53,7 @@ stdenv.mkDerivation {
     license = stdenv.lib.licenses.gpl2Plus ;
     maintainers = [stdenv.lib.maintainers.raskin];
     platforms = stdenv.lib.platforms.linux;
-    homepage = ''http://www.gentoo.org/proj/en/eudev/'';
+    homepage = ''https://www.gentoo.org/proj/en/eudev/'';
     downloadPage = ''http://dev.gentoo.org/~blueness/eudev/'';
     updateWalker = true;
   };

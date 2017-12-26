@@ -1,16 +1,22 @@
-{ stdenv, fetchgit, popt }:
+{ stdenv, fetchFromGitHub, pkgconfig, popt }:
 
 stdenv.mkDerivation rec {
   name = "efivar-${version}";
-  version = "0.15";
+  version = "30";
 
-  src = fetchgit {
-    url = "git://github.com/rhinstaller/efivar.git";
-    rev = "refs/tags/${version}";
-    sha256 = "1k5krjghb2r04wv6kxnhs1amqwzk7khzm7bsh0wnbsz7qn92masr";
+  src = fetchFromGitHub {
+    owner = "rhinstaller";
+    repo = "efivar";
+    rev = version;
+    sha256 = "1pghj019qr7qpqd9rxfhsr1hm3s0w1hd5cdndpl07vhys8hy4a8a";
   };
 
+  nativeBuildInputs = [ pkgconfig ];
   buildInputs = [ popt ];
+
+  postPatch = ''
+     substituteInPlace src/Makefile --replace "-static" ""
+  '';
 
   installFlags = [
     "libdir=$(out)/lib"
@@ -20,7 +26,7 @@ stdenv.mkDerivation rec {
   ];
 
   meta = with stdenv.lib; {
-    homepage = http://github.com/vathpela/efivar;
+    inherit (src.meta) homepage;
     description = "Tools and library to manipulate EFI variables";
     platforms = platforms.linux;
     license = licenses.lgpl21;

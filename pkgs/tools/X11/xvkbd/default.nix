@@ -2,10 +2,10 @@
 
 stdenv.mkDerivation rec {
   name = "xvkbd-${version}";
-  version = "3.5";
+  version = "3.8";
   src = fetchurl {
-    url = "http://homepage3.nifty.com/tsato/xvkbd/xvkbd-${version}.tar.gz";
-    sha256 = "1vlg5gl1bflx80prvwg6glw0g4fvbi6k3cy0pya0h7cz6nxbs6c8";
+    url = "http://t-sato.in.coocan.jp/xvkbd/xvkbd-3.8.tar.gz";
+    sha256 = "16r5wbb5za02ha0ilwswx37lrwa6j40px8c9gkpnmmpb5r7kv91c";
   };
 
   buildInputs = [ imake libXt libXaw libXtst xextproto libXi Xaw3d libXpm gccmakedep ];
@@ -16,7 +16,7 @@ stdenv.mkDerivation rec {
   configurePhase = '' xmkmf -a '';
 
   meta = with stdenv.lib; {
-    description = "virtual keyboard for X window system";
+    description = "Virtual keyboard for X window system";
     longDescription = ''
       xvkbd is a virtual (graphical) keyboard program for X Window System which provides
       facility to enter characters onto other clients (softwares) by clicking on a

@@ -2,21 +2,27 @@
 
 with lib;
 
-let
-
-  glibcLocales = pkgs.glibcLocales.override {
-    allLocales = any (x: x == "all") config.i18n.supportedLocales;
-    locales = config.i18n.supportedLocales;
-  };
-
-in
-
 {
   ###### interface
 
   options = {
 
     i18n = {
+      glibcLocales = mkOption {
+        type = types.path;
+        default = pkgs.glibcLocales.override {
+          allLocales = any (x: x == "all") config.i18n.supportedLocales;
+          locales = config.i18n.supportedLocales;
+        };
+        example = literalExample "pkgs.glibcLocales";
+        description = ''
+          Customized pkg.glibcLocales package.
+
+          Changing this option can disable handling of i18n.defaultLocale
+          and supportedLocale.
+        '';
+      };
+
       defaultLocale = mkOption {
         type = types.str;
         default = "en_US.UTF-8";
@@ -37,7 +43,17 @@ in
           <literal>"all"</literal> means that all locales supported by
           Glibc will be installed.  A full list of supported locales
           can be found at <link
-          xlink:href="http://sourceware.org/cgi-bin/cvsweb.cgi/libc/localedata/SUPPORTED?cvsroot=glibc"/>.
+          xlink:href="https://sourceware.org/git/?p=glibc.git;a=blob;f=localedata/SUPPORTED"/>.
+        '';
+      };
+
+      consolePackages = mkOption {
+        type = types.listOf types.package;
+        default = with pkgs.kbdKeymaps; [ dvp neo ];
+        defaultText = ''with pkgs.kbdKeymaps; [ dvp neo ]'';
+        description = ''
+          List of additional packages that provide console fonts, keymaps and
+          other resources.
         '';
       };
 
@@ -49,6 +65,15 @@ in
           The font used for the virtual consoles.  Leave empty to use
           whatever the <command>setfont</command> program considers the
           default font.
+        '';
+      };
+
+      consoleUseXkbConfig = mkOption {
+        type = types.bool;
+        default = false;
+        description = ''
+          If set, configure the console keymap from the xserver keyboard
+          settings.
         '';
       };
 
@@ -65,6 +90,23 @@ in
         '';
       };
 
+      consoleColors = mkOption {
+        type = types.listOf types.str;
+        default = [];
+        example = [
+          "002b36" "dc322f" "859900" "b58900"
+          "268bd2" "d33682" "2aa198" "eee8d5"
+          "002b36" "cb4b16" "586e75" "657b83"
+          "839496" "6c71c4" "93a1a1" "fdf6e3"
+        ];
+        description = ''
+          The 16 colors palette used by the virtual consoles.
+          Leave empty to use the default colors.
+          Colors must be in hexadecimal format and listed in
+          order from color 0 to color 15.
+        '';
+      };
+
     };
 
   };
@@ -74,8 +116,15 @@ in
 
   config = {
 
+    i18n.consoleKeyMap = with config.services.xserver;
+      mkIf config.i18n.consoleUseXkbConfig
+        (pkgs.runCommand "xkb-console-keymap" { preferLocalBuild = true; } ''
+          '${pkgs.ckbcomp}/bin/ckbcomp' -model '${xkbModel}' -layout '${layout}' \
+            -option '${xkbOptions}' -variant '${xkbVariant}' > "$out"
+        '');
+
     environment.systemPackages =
-      optional (config.i18n.supportedLocales != []) glibcLocales;
+      optional (config.i18n.supportedLocales != []) config.i18n.glibcLocales;
 
     environment.sessionVariables =
       { LANG = config.i18n.defaultLocale;
@@ -83,7 +132,7 @@ in
       };
 
     systemd.globalEnvironment = mkIf (config.i18n.supportedLocales != []) {
-      LOCALE_ARCHIVE = "${glibcLocales}/lib/locale/locale-archive";
+      LOCALE_ARCHIVE = "${config.i18n.glibcLocales}/lib/locale/locale-archive";
     };
 
     # ‘/etc/locale.conf’ is used by systemd.

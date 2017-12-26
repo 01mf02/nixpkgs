@@ -1,6 +1,6 @@
-{ lib, stdenv, fetchurl, pkgconfig, intltool, autoreconfHook
-, json_c, libsndfile
-, xlibs, libcap, alsaLib, glib
+{ lib, stdenv, fetchurl, fetchpatch, pkgconfig, intltool, autoreconfHook
+, libsndfile, libtool
+, xorg, libcap, alsaLib, glib
 , avahi, libjack2, libasyncns, lirc, dbus
 , sbc, bluez5, udev, openssl, fftwFloat
 , speexdsp, systemd, webrtc-audio-processing, gconf ? null
@@ -30,18 +30,22 @@
 
 , # Whether to build only the library.
   libOnly ? false
+
+, CoreServices, AudioUnit, Cocoa
 }:
 
 stdenv.mkDerivation rec {
   name = "${if libOnly then "lib" else ""}pulseaudio-${version}";
-  version = "6.0";
+  version = "11.0";
 
   src = fetchurl {
     url = "http://freedesktop.org/software/pulseaudio/releases/pulseaudio-${version}.tar.xz";
-    sha256 = "1xpnfxa0d8pgf6b4qdgnkcvrvdxbbbjd5ync19h0f5hbp3h401mm";
+    sha256 = "0sf92knqkvqmfhrbz4vlsagzqlps72wycpmln5dygicg07a0a8q7";
   };
 
   patches = [ ./caps-fix.patch ];
+
+  outputs = [ "out" "dev" ];
 
   nativeBuildInputs = [ pkgconfig intltool autoreconfHook ];
 
@@ -49,12 +53,13 @@ stdenv.mkDerivation rec {
     lib.optionals stdenv.isLinux [ libcap ];
 
   buildInputs =
-    [ json_c libsndfile speexdsp fftwFloat ]
-    ++ lib.optionals stdenv.isLinux [ glib dbus.libs ]
+    [ libtool libsndfile speexdsp fftwFloat ]
+    ++ lib.optionals stdenv.isLinux [ glib dbus ]
+    ++ lib.optionals stdenv.isDarwin [ CoreServices AudioUnit Cocoa ]
     ++ lib.optionals (!libOnly) (
       [ libasyncns webrtc-audio-processing ]
       ++ lib.optional jackaudioSupport libjack2
-      ++ lib.optionals x11Support [ xlibs.xlibs xlibs.libXtst xlibs.libXi ]
+      ++ lib.optionals x11Support [ xorg.xlibsWrapper xorg.libXtst xorg.libXi ]
       ++ lib.optional useSystemd systemd
       ++ lib.optionals stdenv.isLinux [ alsaLib udev ]
       ++ lib.optional airtunesSupport openssl
@@ -88,6 +93,7 @@ stdenv.mkDerivation rec {
     [ "--localstatedir=/var"
       "--sysconfdir=/etc"
       "--with-access-group=audio"
+      "--with-bash-completion-dir=\${out}/share/bash-completions/completions"
     ]
     ++ lib.optional (jackaudioSupport && !libOnly) "--enable-jack"
     ++ lib.optional stdenv.isDarwin "--with-mac-sysroot=/"
@@ -109,12 +115,14 @@ stdenv.mkDerivation rec {
 
   postInstall = lib.optionalString libOnly ''
     rm -rf $out/{bin,share,etc,lib/{pulse-*,systemd}}
-  '';
+    sed 's|-lltdl|-L${libtool.lib}/lib -lltdl|' -i $out/lib/pulseaudio/libpulsecore-${version}.la
+  ''
+    + ''moveToOutput lib/cmake "$dev" '';
 
   meta = {
     description = "Sound server for POSIX and Win32 systems";
     homepage    = http://www.pulseaudio.org/;
-    licenses    = lib.licenses.lgpl2Plus;
+    license     = lib.licenses.lgpl2Plus;
     maintainers = with lib.maintainers; [ lovek323 wkennington ];
     platforms   = lib.platforms.unix;
 

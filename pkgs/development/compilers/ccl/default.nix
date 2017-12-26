@@ -1,27 +1,49 @@
-{ stdenv, fetchsvn, gcc, glibc, m4, coreutils }:
+{ stdenv, fetchurl, gcc, glibc, m4, coreutils }:
 
-/* TODO: there are also MacOS, FreeBSD and Windows versions */
-assert stdenv.system == "x86_64-linux" || stdenv.system == "i686-linux";
+let
+  options = rec {
+    /* TODO: there are also MacOS, FreeBSD and Windows versions */
+    x86_64-linux = {
+      arch = "linuxx86";
+      sha256 = "0hs1f3z7crgzvinpj990kv9gvbsipxvcvwbmk54n51nasvc5025q";
+      runtime = "lx86cl64";
+      kernel = "linuxx8664";
+    };
+    i686-linux = {
+      arch = "linuxx86";
+      sha256 = x86_64-linux.sha256;
+      runtime = "lx86cl";
+      kernel = "linuxx8632";
+    };
+    armv7l-linux = {
+      arch = "linuxarm";
+      sha256 = "0p0l1dzsygb6i1xxgbipjpxkn46xhq3jm41a34ga1qqp4x8lkr62";
+      runtime = "armcl";
+      kernel = "linuxarm";
+    };
+    armv6l-linux = armv7l-linux;
+  };
+  cfg = options.${stdenv.system};
+in
+
+assert builtins.hasAttr stdenv.system options;
 
 stdenv.mkDerivation rec {
   name     = "ccl-${version}";
-  version  = "1.10";
-  revision = "16313";
+  version  = "1.11.5";
 
-  src = fetchsvn {
-    url = http://svn.clozure.com/publicsvn/openmcl/release/1.10/linuxx86/ccl;
-    rev = revision;
-    sha256 = "11lmdvzj1mbm7mbr22vjbcrsvinyz8n32a91ms324xqdqpr82ifb";
+  src = fetchurl {
+    url = "https://github.com/Clozure/ccl/releases/download/v${version}/ccl-${version}-${cfg.arch}.tar.gz";
+    sha256 = cfg.sha256;
   };
 
   buildInputs = [ gcc glibc m4 ];
 
-  CCL_RUNTIME = if stdenv.system == "x86_64-linux" then "lx86cl64"   else "lx86cl";
-  CCL_KERNEL  = if stdenv.system == "x86_64-linux" then "linuxx8664" else "linuxx8632";
+  CCL_RUNTIME = cfg.runtime;
+  CCL_KERNEL = cfg.kernel;
 
-  patchPhase = ''
+  postPatch = ''
     substituteInPlace lisp-kernel/${CCL_KERNEL}/Makefile \
-      --replace "svnversion" "echo ${revision}" \
       --replace "/bin/rm"    "${coreutils}/bin/rm" \
       --replace "/bin/echo"  "${coreutils}/bin/echo"
 
@@ -43,13 +65,14 @@ stdenv.mkDerivation rec {
     mkdir -p "$out/bin"
     echo -e '#!/bin/sh\n'"$out/share/ccl-installation/${CCL_RUNTIME}"' "$@"\n' > "$out"/bin/"${CCL_RUNTIME}"
     chmod a+x "$out"/bin/"${CCL_RUNTIME}"
+    ln -s "$out"/bin/"${CCL_RUNTIME}" "$out"/bin/ccl
   '';
 
-  meta = {
+  meta = with stdenv.lib; {
     description = "Clozure Common Lisp";
-    homepage    = http://ccl.clozure.com/;
-    maintainers = with stdenv.lib.maintainers; [ raskin muflax ];
-    platforms   = stdenv.lib.platforms.linux;
-    license     = stdenv.lib.licenses.lgpl21;
+    homepage    = https://ccl.clozure.com/;
+    maintainers = with maintainers; [ raskin muflax tohl ];
+    platforms   = attrNames options;
+    license     = licenses.lgpl21;
   };
 }

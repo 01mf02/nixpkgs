@@ -1,9 +1,8 @@
-{ config, lib, pkgs, ... }:
+{ config, lib, utils, pkgs, ... }:
 
 with lib;
 
 let
-
   ids = config.ids;
   cfg = config.users;
 
@@ -26,7 +25,7 @@ let
   '';
 
   hashedPasswordDescription = ''
-    To generate hashed password install <literal>mkpassword</literal>
+    To generate hashed password install <literal>mkpasswd</literal>
     package and run <literal>mkpasswd -m sha-512</literal>.
   '';
 
@@ -103,25 +102,41 @@ let
       };
 
       home = mkOption {
-        type = types.str;
+        type = types.path;
         default = "/var/empty";
         description = "The user's home directory.";
       };
 
+      cryptHomeLuks = mkOption {
+        type = with types; nullOr str;
+        default = null;
+        description = ''
+          Path to encrypted luks device that contains
+          the user's home directory.
+        '';
+      };
+
       shell = mkOption {
-        type = types.str;
-        default = "/run/current-system/sw/bin/nologin";
-        description = "The path to the user's shell.";
+        type = types.either types.shellPackage types.path;
+        default = pkgs.nologin;
+        defaultText = "pkgs.nologin";
+        example = literalExample "pkgs.bashInteractive";
+        description = ''
+          The path to the user's shell. Can use shell derivations,
+          like <literal>pkgs.bashInteractive</literal>. Don’t
+          forget to enable your shell in
+          <literal>programs</literal> if necessary,
+          like <code>programs.zsh.enable = true;</code>.
+        '';
       };
 
       subUidRanges = mkOption {
-        type = types.listOf types.optionSet;
+        type = with types; listOf (submodule subordinateUidRange);
         default = [];
         example = [
           { startUid = 1000; count = 1; }
           { startUid = 100001; count = 65534; }
         ];
-        options = [ subordinateUidRange ];
         description = ''
           Subordinate user ids that user is allowed to use.
           They are set into <filename>/etc/subuid</filename> and are used
@@ -130,13 +145,12 @@ let
       };
 
       subGidRanges = mkOption {
-        type = types.listOf types.optionSet;
+        type = with types; listOf (submodule subordinateGidRange);
         default = [];
         example = [
           { startGid = 100; count = 1; }
           { startGid = 1001; count = 999; }
         ];
-        options = [ subordinateGidRange ];
         description = ''
           Subordinate group ids that user is allowed to use.
           They are set into <filename>/etc/subgid</filename> and are used
@@ -207,7 +221,7 @@ let
           exist. If <option>users.mutableUsers</option> is true, the
           password can be changed subsequently using the
           <command>passwd</command> command. Otherwise, it's
-          equivalent to setting the <option>password</option> option.
+          equivalent to setting the <option>hashedPassword</option> option.
 
           ${hashedPasswordDescription}
         '';
@@ -227,6 +241,17 @@ let
           is world-readable in the Nix store, so it should only be
           used for guest accounts or passwords that will be changed
           promptly.
+        '';
+      };
+
+      packages = mkOption {
+        type = types.listOf types.package;
+        default = [];
+        example = literalExample "[ pkgs.firefox pkgs.thunderbird ]";
+        description = ''
+          The set of packages that should be made availabe to the user.
+          This is in contrast to <option>environment.systemPackages</option>,
+          which adds packages to all users.
         '';
       };
 
@@ -294,32 +319,36 @@ let
   };
 
   subordinateUidRange = {
-    startUid = mkOption {
-      type = types.int;
-      description = ''
-        Start of the range of subordinate user ids that user is
-        allowed to use.
-      '';
-    };
-    count = mkOption {
-      type = types.int;
-      default = 1;
-      description = ''Count of subordinate user ids'';
+    options = {
+      startUid = mkOption {
+        type = types.int;
+        description = ''
+          Start of the range of subordinate user ids that user is
+          allowed to use.
+        '';
+      };
+      count = mkOption {
+        type = types.int;
+        default = 1;
+        description = ''Count of subordinate user ids'';
+      };
     };
   };
 
   subordinateGidRange = {
-    startGid = mkOption {
-      type = types.int;
-      description = ''
-        Start of the range of subordinate group ids that user is
-        allowed to use.
-      '';
-    };
-    count = mkOption {
-      type = types.int;
-      default = 1;
-      description = ''Count of subordinate group ids'';
+    options = {
+      startGid = mkOption {
+        type = types.int;
+        description = ''
+          Start of the range of subordinate group ids that user is
+          allowed to use.
+        '';
+      };
+      count = mkOption {
+        type = types.int;
+        default = 1;
+        description = ''Count of subordinate group ids'';
+      };
     };
   };
 
@@ -327,13 +356,13 @@ let
     map (range: "${user.name}:${toString range.startUid}:${toString range.count}\n")
       user.subUidRanges);
 
-  subuidFile = concatStrings (map mkSubuidEntry (attrValues cfg.extraUsers));
+  subuidFile = concatStrings (map mkSubuidEntry (attrValues cfg.users));
 
   mkSubgidEntry = user: concatStrings (
     map (range: "${user.name}:${toString range.startGid}:${toString range.count}\n")
         user.subGidRanges);
 
-  subgidFile = concatStrings (map mkSubgidEntry (attrValues cfg.extraUsers));
+  subgidFile = concatStrings (map mkSubgidEntry (attrValues cfg.users));
 
   idsAreUnique = set: idAttr: !(fold (name: args@{ dup, acc }:
     let
@@ -345,24 +374,31 @@ let
       else { dup = false; acc = newAcc; }
     ) { dup = false; acc = {}; } (builtins.attrNames set)).dup;
 
-  uidsAreUnique = idsAreUnique (filterAttrs (n: u: u.uid != null) cfg.extraUsers) "uid";
-  gidsAreUnique = idsAreUnique (filterAttrs (n: g: g.gid != null) cfg.extraGroups) "gid";
+  uidsAreUnique = idsAreUnique (filterAttrs (n: u: u.uid != null) cfg.users) "uid";
+  gidsAreUnique = idsAreUnique (filterAttrs (n: g: g.gid != null) cfg.groups) "gid";
 
   spec = pkgs.writeText "users-groups.json" (builtins.toJSON {
     inherit (cfg) mutableUsers;
-    users = mapAttrsToList (n: u:
+    users = mapAttrsToList (_: u:
       { inherit (u)
-          name uid group description home shell createHome isSystemUser
+          name uid group description home createHome isSystemUser
           password passwordFile hashedPassword
           initialPassword initialHashedPassword;
-      }) cfg.extraUsers;
+        shell = utils.toShellPath u.shell;
+      }) cfg.users;
     groups = mapAttrsToList (n: g:
       { inherit (g) name gid;
         members = g.members ++ (mapAttrsToList (n: u: u.name) (
-          filterAttrs (n: u: elem g.name u.extraGroups) cfg.extraUsers
+          filterAttrs (n: u: elem g.name u.extraGroups) cfg.users
         ));
-      }) cfg.extraGroups;
+      }) cfg.groups;
   });
+
+  systemShells =
+    let
+      shells = mapAttrsToList (_: u: u.shell) cfg.users;
+    in
+      filter types.shellPackage.check shells;
 
 in {
 
@@ -379,10 +415,10 @@ in {
         <literal>groupadd</literal> commands. On system activation, the
         existing contents of the <literal>/etc/passwd</literal> and
         <literal>/etc/group</literal> files will be merged with the
-        contents generated from the <literal>users.extraUsers</literal> and
-        <literal>users.extraGroups</literal> options.
+        contents generated from the <literal>users.users</literal> and
+        <literal>users.groups</literal> options.
         The initial password for a user will be set
-        according to <literal>users.extraUsers</literal>, but existing passwords
+        according to <literal>users.users</literal>, but existing passwords
         will not be changed.
 
         <warning><para>
@@ -390,7 +426,7 @@ in {
         group files will simply be replaced on system activation. This also
         holds for the user passwords; all changed
         passwords will be reset according to the
-        <literal>users.extraUsers</literal> configuration on activation.
+        <literal>users.users</literal> configuration on activation.
         </para></warning>
       '';
     };
@@ -403,9 +439,9 @@ in {
       '';
     };
 
-    users.extraUsers = mkOption {
+    users.users = mkOption {
       default = {};
-      type = types.loaOf types.optionSet;
+      type = with types; loaOf (submodule userOpts);
       example = {
         alice = {
           uid = 1234;
@@ -421,20 +457,18 @@ in {
         Additional user accounts to be created automatically by the system.
         This can also be used to set options for root.
       '';
-      options = [ userOpts ];
     };
 
-    users.extraGroups = mkOption {
+    users.groups = mkOption {
       default = {};
       example =
         { students.gid = 1001;
           hackers = { };
         };
-      type = types.loaOf types.optionSet;
+      type = with types; loaOf (submodule groupOpts);
       description = ''
         Additional groups to be created automatically by the system.
       '';
-      options = [ groupOpts ];
     };
 
     # FIXME: obsolete - will remove.
@@ -452,14 +486,13 @@ in {
 
   config = {
 
-    users.extraUsers = {
+    users.users = {
       root = {
         uid = ids.uids.root;
         description = "System administrator";
         home = "/root";
         shell = mkDefault cfg.defaultUserShell;
         group = "root";
-        extraGroups = [ "grsecurity" ];
         initialHashedPassword = mkDefault config.security.initialRootPassword;
       };
       nobody = {
@@ -469,7 +502,10 @@ in {
       };
     };
 
-    users.extraGroups = {
+    # Install all the user shells
+    environment.systemPackages = systemShells;
+
+    users.groups = {
       root.gid = ids.gids.root;
       wheel.gid = ids.gids.wheel;
       disk.gid = ids.gids.disk;
@@ -488,11 +524,10 @@ in {
       nixbld.gid = ids.gids.nixbld;
       utmp.gid = ids.gids.utmp;
       adm.gid = ids.gids.adm;
-      grsecurity.gid = ids.gids.grsecurity;
       input.gid = ids.gids.input;
     };
 
-    system.activationScripts.users = stringAfter [ "etc" ]
+    system.activationScripts.users = stringAfter [ "stdio" ]
       ''
         ${pkgs.perl}/bin/perl -w \
           -I${pkgs.perlPackages.FileSlurp}/lib/perl5/site_perl \
@@ -516,8 +551,47 @@ in {
       { assertion = !cfg.enforceIdUniqueness || (uidsAreUnique && gidsAreUnique);
         message = "UIDs and GIDs must be unique!";
       }
+      { # If mutableUsers is false, to prevent users creating a
+        # configuration that locks them out of the system, ensure that
+        # there is at least one "privileged" account that has a
+        # password or an SSH authorized key. Privileged accounts are
+        # root and users in the wheel group.
+        assertion = !cfg.mutableUsers ->
+          any id (mapAttrsToList (name: cfg:
+            (name == "root"
+             || cfg.group == "wheel"
+             || elem "wheel" cfg.extraGroups)
+            &&
+            ((cfg.hashedPassword != null && cfg.hashedPassword != "!")
+             || cfg.password != null
+             || cfg.passwordFile != null
+             || cfg.openssh.authorizedKeys.keys != []
+             || cfg.openssh.authorizedKeys.keyFiles != [])
+          ) cfg.users);
+        message = ''
+          Neither the root account nor any wheel user has a password or SSH authorized key.
+          You must set one to prevent being locked out of your system.'';
+      }
     ];
 
   };
 
+  imports =
+    [ (mkAliasOptionModule [ "users" "extraUsers" ] [ "users" "users" ])
+      (mkAliasOptionModule [ "users" "extraGroups" ] [ "users" "groups" ])
+      {
+        environment = {
+          etc = mapAttrs' (name: { packages, ... }: {
+            name = "profiles/per-user/${name}";
+            value.source = pkgs.buildEnv {
+              name = "user-environment";
+              paths = packages;
+              inherit (config.environment) pathsToLink extraOutputsToInstall;
+              inherit (config.system.path) ignoreCollisions postBuild;
+            };
+          }) (filterAttrs (_: { packages, ... }: packages != []) cfg.users);
+          profiles = ["/etc/profiles/per-user/$USER"];
+        };
+      }
+    ];
 }

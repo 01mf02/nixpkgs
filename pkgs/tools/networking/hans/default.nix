@@ -1,18 +1,29 @@
 { stdenv, fetchFromGitHub, nettools }:
 
-let version = "0.4.4"; in
 stdenv.mkDerivation rec {
   name = "hans-${version}";
+  version = "1.0";
 
   src = fetchFromGitHub {
-    sha256 = "1xskffmmdmg1whlrl5wpkv9z29vh0igrbmsz0b45s9v0761a7kis";
+    sha256 = "1qnfl7wr5x937b6jx3vhhvnwnrclrqvq7d7zxbfhk74pdwnjy8n4";
     rev = "v${version}";
     repo = "hans";
     owner = "friedrich";
   };
 
+  buildInputs = [ nettools ];
+
+  postPatch = ''
+    substituteInPlace src/tun.cpp --replace "/sbin/" "${nettools}/bin/"
+  '';
+
+  enableParallelBuilding = true;
+
+  installPhase = ''
+    install -D -m0755 hans $out/bin/hans
+  '';
+
   meta = with stdenv.lib; {
-    inherit version;
     description = "Tunnel IPv4 over ICMP";
     longDescription = ''
       Hans makes it possible to tunnel IPv4 through ICMP echo packets, so you
@@ -22,19 +33,7 @@ stdenv.mkDerivation rec {
     '';
     homepage = http://code.gerade.org/hans/;
     license = licenses.gpl3Plus;
-    platforms = with platforms; linux;
+    platforms = platforms.linux;
     maintainers = with maintainers; [ nckx ];
   };
-
-  buildInputs = [ nettools ];
-
-  postPatch = ''
-    substituteInPlace src/tun.cpp --replace "/sbin/" "/${nettools}/bin/"
-  '';
-
-  enableParallelBuilding = true;
-
-  installPhase = ''
-    install -D -m0755 hans $out/bin/hans
-  '';
 }

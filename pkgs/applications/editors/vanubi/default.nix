@@ -1,16 +1,17 @@
-{ stdenv, fetchurl, pkgconfig, vala, which, autoconf, automake
+{ stdenv, fetchurl, pkgconfig, vala_0_28, which, autoconf, automake
 , libtool, glib, gtk3, gnome3, libwnck3, asciidoc, python3Packages }:
 
 stdenv.mkDerivation rec {
   name = "vanubi-${version}";
-  version = "0.0.14";
+  version = "0.0.16";
 
   src = fetchurl {
     url = "https://github.com/vanubi/vanubi/archive/v${version}.tar.gz";
-    sha256 = "0cd45zm54j6xz1a31qllg2w7l77sncv7mrpfx9bjzdiqpmzsdypl";
+    sha256 = "145zxgaky5bcq5bxm4z7h0pvviq7k1nrgnf40q6nax6ik616ybjq";
   };
 
-  buildInputs = [ pkgconfig vala which autoconf automake
+  nativeBuildInputs = [ pkgconfig ];
+  buildInputs = [ vala_0_28 which autoconf automake
                   libtool glib gtk3 libwnck3 asciidoc
                   gnome3.gtksourceview gnome3.vte_290 python3Packages.pygments ];
 

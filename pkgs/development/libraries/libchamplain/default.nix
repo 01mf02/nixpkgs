@@ -1,23 +1,25 @@
 { fetchurl, stdenv, pkgconfig, glib, gtk3, cairo, clutter, sqlite
-, clutter_gtk, libsoup /*, libmemphis */ }:
+, clutter_gtk, libsoup, gobjectIntrospection /*, libmemphis */ }:
 
 stdenv.mkDerivation rec {
-  name = "libchamplain-0.12.10";
+  major = "0.12";
+  version = "${major}.16";
+  name = "libchamplain-${version}";
 
   src = fetchurl {
-    url = "mirror://gnome/sources/libchamplain/0.12/${name}.tar.xz";
-    sha256 = "019b8scnx7d3wdylmpk9ihzh06w25b63x9cn8nhj6kjx82rcwlxz";
+    url = "mirror://gnome/sources/libchamplain/${major}/${name}.tar.xz";
+    sha256 = "13chvc2n074i0jw5jlb8i7cysda4yqx58ca6y3mrlrl9g37k2zja";
   };
 
-  buildInputs = [ pkgconfig ];
+  nativeBuildInputs = [ pkgconfig ];
+  buildInputs = [ gobjectIntrospection ];
 
   propagatedBuildInputs = [ glib gtk3 cairo clutter_gtk sqlite libsoup ];
 
-  configureFlags = [ "--disable-introspection" ]; # not needed anywhere AFAIK
-
-  meta = {
+  meta = with stdenv.lib; {
+    inherit version;
     homepage = http://projects.gnome.org/libchamplain/;
-    license = stdenv.lib.licenses.lgpl2Plus;
+    license = licenses.lgpl2Plus;
 
     description = "C library providing a ClutterActor to display maps";
 
@@ -30,6 +32,6 @@ stdenv.mkDerivation rec {
       '';
 
      maintainers = [ ];
-     platforms = stdenv.lib.platforms.gnu;  # arbitrary choice
+     platforms = platforms.gnu;  # arbitrary choice
   };
 }

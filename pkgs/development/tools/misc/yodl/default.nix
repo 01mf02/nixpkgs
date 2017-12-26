@@ -1,20 +1,28 @@
-{ stdenv, fetchurl, perl, icmake, utillinux }:
+{ stdenv, fetchFromGitHub, perl, icmake, utillinux }:
 
 stdenv.mkDerivation rec {
   name = "yodl-${version}";
-  version = "3.05.01";
+  version = "4.01.00";
 
-  buildInputs = [ perl icmake ];
+  nativeBuildInputs = [ icmake ];
 
-  src = fetchurl {
-    url = "mirror://sourceforge/yodl/yodl_${version}.orig.tar.gz";
-    sha256 = "0ghdzr3lzgfzvfymnjbj4mw8vpq098swvipxghhqgfmv58dhwgas";
+  buildInputs = [ perl ];
+
+  src = fetchFromGitHub {
+    sha256 = "1aahwmj4gmf59lrij2373lkgfj77i3ghdas9c7iqrjwaizb0430p";
+    rev = version;
+    repo = "yodl";
+    owner = "fbb-git";
   };
 
+  setSourceRoot = ''
+    sourceRoot=$(echo */yodl)
+  '';
+
   preConfigure = ''
-    patchShebangs scripts/.
-    substituteInPlace INSTALL.im --replace /usr $out
     patchShebangs ./build
+    patchShebangs scripts/
+    substituteInPlace INSTALL.im --replace /usr $out
     substituteInPlace macros/rawmacros/startdoc.pl --replace /usr/bin/perl ${perl}/bin/perl
     substituteInPlace scripts/yodl2whatever.in --replace getopt ${utillinux}/bin/getopt
   '';
@@ -33,9 +41,9 @@ stdenv.mkDerivation rec {
 
   meta = with stdenv.lib; {
     description = "A package that implements a pre-document language and tools to process it";
-    homepage = http://yodl.sourceforge.net/;
+    homepage = https://fbb-git.github.io/yodl/;
     license = licenses.gpl3;
-    maintainers = with maintainers; [ pSub ];
+    maintainers = with maintainers; [ nckx pSub ];
     platforms = platforms.linux;
   };
 }

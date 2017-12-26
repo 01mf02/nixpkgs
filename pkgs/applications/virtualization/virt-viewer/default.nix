@@ -1,7 +1,9 @@
 { stdenv, fetchurl, pkgconfig, intltool, glib, libxml2, gtk3, gtkvnc, gmp
-, libgcrypt, gnupg, cyrus_sasl, shared_mime_info, libvirt, libcap_ng, yajl
-, gsettings_desktop_schemas, makeWrapper
-, spiceSupport ? true, spice_gtk ? null, spice_protocol ? null, libcap ? null, gdbm ? null
+, libgcrypt, gnupg, cyrus_sasl, shared_mime_info, libvirt, yajl, xen
+, gsettings_desktop_schemas, makeWrapper, libvirt-glib, libcap_ng, numactl
+, libapparmor
+, spiceSupport ? true
+, spice_gtk ? null, spice_protocol ? null, libcap ? null, gdbm ? null
 }:
 
 assert spiceSupport ->
@@ -9,26 +11,26 @@ assert spiceSupport ->
 
 with stdenv.lib;
 
-let sourceInfo = rec {
-    baseName="virt-viewer";
-    version="2.0";
-    name="${baseName}-${version}";
-    url="http://virt-manager.org/download/sources/${baseName}/${name}.tar.gz";
-    hash="0dylhpk5rq9jz0l1cxs50q2s74z0wingygm1m33bmnmcnny87ig9";
-}; in
-
-stdenv.mkDerivation  {
-  inherit (sourceInfo) name version;
+stdenv.mkDerivation rec {
+  baseName = "virt-viewer";
+  version = "5.0";
+  name = "${baseName}-${version}";
 
   src = fetchurl {
-    url = sourceInfo.url;
-    sha256 = sourceInfo.hash;
+    url = "http://virt-manager.org/download/sources/${baseName}/${name}.tar.gz";
+    sha256 = "0blbp1wkw8ahss9va0bmcz2yx18j0mvm6fzrzhh2ly3sja5ysb8b";
   };
 
-  buildInputs = [ 
-    pkgconfig intltool glib libxml2 gtk3 gtkvnc gmp libgcrypt gnupg cyrus_sasl
-    shared_mime_info libvirt libcap_ng yajl gsettings_desktop_schemas makeWrapper
-  ] ++ optionals spiceSupport [ spice_gtk spice_protocol libcap gdbm ];
+  nativeBuildInputs = [ pkgconfig intltool ];
+  buildInputs = [
+    glib libxml2 gtk3 gtkvnc gmp libgcrypt gnupg cyrus_sasl shared_mime_info
+    libvirt yajl gsettings_desktop_schemas makeWrapper libvirt-glib
+    libcap_ng numactl libapparmor
+  ] ++ optionals stdenv.isx86_64 [
+    xen
+  ] ++ optionals spiceSupport [
+    spice_gtk spice_protocol libcap gdbm
+  ];
 
   postInstall = ''
     for f in "$out"/bin/*; do

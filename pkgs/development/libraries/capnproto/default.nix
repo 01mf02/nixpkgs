@@ -2,11 +2,11 @@
 
 stdenv.mkDerivation rec {
   name = "capnproto-${version}";
-  version = "0.5.1.2";
+  version = "0.6.1";
 
   src = fetchurl {
     url = "https://capnproto.org/capnproto-c++-${version}.tar.gz";
-    sha256 = "0a89v6sigsyj9vii0d5kqs2fdv73r71f8czzhdvqdvk3p0mlcgx2";
+    sha256 = "010s9yhq4531wvdfrdf2477zswhck6cjfby79w73rff3v06090l0";
   };
 
   meta = with stdenv.lib; {

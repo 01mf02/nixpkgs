@@ -1,11 +1,10 @@
 { lib, stdenv, fetchurl, python, pkgconfig, perl, libxslt, docbook_xsl
-, docbook_xml_dtd_42, docbook_xml_dtd_45, readline, talloc, ntdb, tdb, tevent
-, ldb, popt, iniparser, libbsd, libarchive, libiconv, gettext
+, docbook_xml_dtd_42, docbook_xml_dtd_45, readline, talloc
+, popt, iniparser, libbsd, libarchive, libiconv, gettext
 , kerberos, zlib, openldap, cups, pam, avahi, acl, libaio, fam, libceph, glusterfs
 , gnutls, libgcrypt, libgpgerror
 , ncurses, libunwind, libibverbs, librdmacm, systemd
 
-, enableKerberos ? false
 , enableInfiniband ? false
 , enableLDAP ? false
 , enablePrinting ? false
@@ -19,25 +18,26 @@
 with lib;
 
 stdenv.mkDerivation rec {
-  name = "samba-4.2.1";
+  name = "samba-${version}";
+  version = "4.6.11";
 
   src = fetchurl {
     url = "mirror://samba/pub/samba/stable/${name}.tar.gz";
-    sha256 = "1hsakc8h6rs48xr6i55m90pd53hpxcqjjnlwq8i2rp0nq4ws5sip";
+    sha256 = "07gd41y4ajdiansfqa8c5wvrincgddfzyfgh1pf7g388zaq7l6q5";
   };
+
+  outputs = [ "out" "dev" "man" ];
 
   patches =
     [ ./4.x-no-persistent-install.patch
-      ./4.x-fix-ctdb-deps.patch
-    ] ++ stdenv.lib.optional enableKerberos ./4.x-heimdal-compat.patch;
+    ];
 
   buildInputs =
     [ python pkgconfig perl libxslt docbook_xsl docbook_xml_dtd_42 /*
-      docbook_xml_dtd_45 */ readline talloc ntdb tdb tevent ldb popt iniparser
-      libbsd libarchive zlib acl fam libiconv gettext libunwind
+      docbook_xml_dtd_45 */ readline talloc popt iniparser
+      libbsd libarchive zlib acl fam libiconv gettext libunwind kerberos
     ]
     ++ optionals stdenv.isLinux [ libaio pam systemd ]
-    ++ optional enableKerberos kerberos
     ++ optionals (enableInfiniband && stdenv.isLinux) [ libibverbs librdmacm ]
     ++ optional enableLDAP openldap
     ++ optional (enablePrinting && stdenv.isLinux) cups
@@ -58,24 +58,23 @@ stdenv.mkDerivation rec {
   configureFlags =
     [ "--with-static-modules=NONE"
       "--with-shared-modules=ALL"
+      "--with-system-mitkrb5"
       "--enable-fhs"
       "--sysconfdir=/etc"
       "--localstatedir=/var"
-      "--bundled-libraries=${if enableKerberos && kerberos.implementation == "heimdal" then "NONE" else "com_err"}"
-      "--private-libraries=NONE"
-      "--builtin-libraries=replace"
     ]
-    ++ optional (enableKerberos != null && kerberos.implementation == "krb5") "--with-system-mitkrb5"
     ++ optional (!enableDomainController) "--without-ad-dc"
     ++ optionals (!enableLDAP) [ "--without-ldap" "--without-ads" ];
 
-  enableParallelBuilding = true;
+  # To build in parallel.
+  buildPhase = "python buildtools/bin/waf build -j $NIX_BUILD_CORES";
 
-  stripAllList = [ "bin" "sbin" ];
-
+  # Some libraries don't have /lib/samba in RPATH but need it.
+  # Use find -type f -executable -exec echo {} \; -exec sh -c 'ldd {} | grep "not found"' \;
+  # Looks like a bug in installer scripts.
   postFixup = ''
     export SAMBA_LIBS="$(find $out -type f -name \*.so -exec dirname {} \; | sort | uniq)"
-    read -r -d "" SCRIPT << EOF
+    read -r -d "" SCRIPT << EOF || true
     [ -z "\$SAMBA_LIBS" ] && exit 1;
     BIN='{}';
     OLD_LIBS="\$(patchelf --print-rpath "\$BIN" 2>/dev/null | tr ':' '\n')";
@@ -83,7 +82,7 @@ stdenv.mkDerivation rec {
     patchelf --set-rpath "\$ALL_LIBS" "\$BIN" 2>/dev/null || exit $?;
     patchelf --shrink-rpath "\$BIN";
     EOF
-    find $out -type f -exec $SHELL -c "$SCRIPT" \;
+    find $out -type f -name \*.so -exec $SHELL -c "$SCRIPT" \;
   '';
 
   meta = with stdenv.lib; {

@@ -2,11 +2,11 @@
 
 stdenv.mkDerivation rec {
   name = "yaws-${version}";
-  version = "1.99";
+  version = "2.0";
 
   src = fetchurl {
     url = "http://yaws.hyber.org/download/${name}.tar.gz";
-    sha256 = "057ymg84ji4pfi3xai6kis3mk8zks2ynbiam0x68cb4cb1yfzwcl";
+    sha256 = "1gwk44a07n7yvg900yrlfc6qpvjl64k2h2hddd1jaaay8lgpcch6";
   };
 
   # The tarball includes a symlink yaws -> yaws-1.95, which seems to be
@@ -26,7 +26,7 @@ stdenv.mkDerivation rec {
 
   meta = with stdenv.lib; {
     description = "A high performance HTTP 1.1 server in Erlang";
-    homepage = http://http://yaws.hyber.org;
+    homepage = http://yaws.hyber.org;
     license = licenses.bsd2;
     platforms = platforms.linux;
     maintainers = with maintainers; [ goibhniu the-kenny ];

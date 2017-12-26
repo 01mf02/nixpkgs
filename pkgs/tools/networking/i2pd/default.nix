@@ -1,25 +1,29 @@
-{ stdenv, fetchurl, boost, cryptopp }:
+{ stdenv, fetchFromGitHub, fetchpatch, boost, zlib, openssl }:
 
 stdenv.mkDerivation rec {
 
-  name = "i2pd-${version}";
-  version = "0.9.0";
+  name = pname + "-" + version;
+  pname = "i2pd";
+  version = "2.15.0";
 
-  src = fetchurl {
-    name = "i2pd-src-${version}.tar.gz";
-    url = "https://github.com/PurpleI2P/i2pd/archive/${version}.tar.gz";
-    sha256 = "1rcf4wc34g2alva9jzj6bz0f88g2f5v1w4418b6lp6chvqi7fhc7";
+  src = fetchFromGitHub {
+    owner = "PurpleI2P";
+    repo = pname;
+    rev = version;
+    sha256 = "02nyk76q2ag0495ph62i0jij27nxpy6qvryjp25wah8f69k7bgfs";
   };
 
-  buildInputs = [ boost cryptopp ];
+  buildInputs = [ boost zlib openssl ];
+  makeFlags = [ "USE_AESNI=no" "USE_AVX=no" ];
+
   installPhase = ''
-    install -D i2p $out/bin/i2p
+    install -D i2pd $out/bin/i2pd
   '';
 
   meta = with stdenv.lib; {
-    homepage = "https://track.privacysolutions.no/projects/i2pd";
+    homepage = https://i2pd.website;
     description = "Minimal I2P router written in C++";
-    license = licenses.gpl2;
+    license = licenses.bsd3;
     maintainers = with maintainers; [ edwtjo ];
     platforms = platforms.linux;
   };

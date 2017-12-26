@@ -27,11 +27,12 @@ stdenv.mkDerivation rec {
   '';
 
   nativeBuildInputs = [ pkgconfig ];
-  buildInputs = [ optAlsaLib optDb optLibuuid optLibffado optCelt ];
+  buildInputs = [ optAlsaLib optDb optLibffado optCelt ];
+  propagatedBuildInputs = [ optLibuuid ];
   
   meta = with stdenv.lib; {
     description = "JACK audio connection kit";
-    homepage = "http://jackaudio.org";
+    homepage = http://jackaudio.org;
     license = "GPL";
     platforms = platforms.unix;
     maintainers = with maintainers; [ wkennington ];

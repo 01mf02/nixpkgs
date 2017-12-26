@@ -1,48 +1,58 @@
-{ stdenv, fetchurl, libevent, openssl, zlib, torsocks }:
+{ stdenv, fetchurl, pkgconfig, libevent, openssl, zlib, torsocks
+, libseccomp, systemd, libcap
+}:
 
 stdenv.mkDerivation rec {
-  name = "tor-0.2.6.9";
+  name = "tor-0.3.1.9";
 
   src = fetchurl {
-    url = "https://archive.torproject.org/tor-package-archive/${name}.tar.gz";
-    sha256 = "171gjhapymfzql3bbx5qndgkamcfdl6lincrqlr7i3d9i6njjv2a";
+    url = "https://dist.torproject.org/${name}.tar.gz";
+    sha256 = "09ixizsr635qyshvrn1m5asjkaz4fm8dx80lc3ajyy0fi7vh86vf";
   };
 
-  # Note: torsocks is specified as a dependency, as the distributed
-  # 'torify' wrapper attempts to use it; although there is no
-  # ./configure time check for any of this.
-  buildInputs = [ libevent openssl zlib torsocks ];
+  outputs = [ "out" "geoip" ];
 
-  CFLAGS = stdenv.lib.optionalString stdenv.cc.isGNU "-lgcc_s";
+  enableParallelBuilding = true;
 
-  # Patch 'torify' to point directly to torsocks.
-  patchPhase = ''
+  nativeBuildInputs = [ pkgconfig ];
+  buildInputs = [ libevent openssl zlib ] ++
+    stdenv.lib.optionals stdenv.isLinux [ libseccomp systemd libcap ];
+
+  NIX_CFLAGS_LINK = stdenv.lib.optionalString stdenv.cc.isGNU "-lgcc_s";
+
+  postPatch = ''
     substituteInPlace contrib/client-tools/torify \
       --replace 'pathfind torsocks' true          \
       --replace 'exec torsocks' 'exec ${torsocks}/bin/torsocks'
   '';
 
+  postInstall = ''
+    mkdir -p $geoip/share/tor
+    mv $out/share/tor/geoip{,6} $geoip/share/tor
+    rm -rf $out/share/tor
+  '';
+
   doCheck = true;
 
-  meta = {
-    homepage = http://www.torproject.org/;
+  meta = with stdenv.lib; {
+    homepage = https://www.torproject.org/;
     repositories.git = https://git.torproject.org/git/tor;
-    description = "Anonymous network router to improve privacy on the Internet";
+    description = "Anonymizing overlay network";
 
-    longDescription=''
-      Tor protects you by bouncing your communications around a distributed
-      network of relays run by volunteers all around the world: it prevents
-      somebody watching your Internet connection from learning what sites you
-      visit, and it prevents the sites you visit from learning your physical
-      location. Tor works with many of your existing applications, including
-      web browsers, instant messaging clients, remote login, and other
-      applications based on the TCP protocol.
+    longDescription = ''
+      Tor helps improve your privacy by bouncing your communications around a
+      network of relays run by volunteers all around the world: it makes it
+      harder for somebody watching your Internet connection to learn what sites
+      you visit, and makes it harder for the sites you visit to track you. Tor
+      works with many of your existing applications, including web browsers,
+      instant messaging clients, remote login, and other applications based on
+      the TCP protocol.
     '';
 
-    license="mBSD";
+    license = licenses.bsd3;
 
-    maintainers = with stdenv.lib.maintainers;
-      [ phreedom doublec thoughtpolice ];
-    platforms = stdenv.lib.platforms.unix;
+    maintainers = with maintainers;
+      [ phreedom doublec thoughtpolice joachifm ];
+    platforms = platforms.unix;
   };
 }

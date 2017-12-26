@@ -1,41 +1,70 @@
-{ stdenv, fetchurl, pkgconfig, perl, ncurses, yacc, openssl, openldap, bootstrap_cmds }:
+{ stdenv, fetchurl, pkgconfig, perl, yacc, bootstrap_cmds
+, openssl, openldap, libedit
+
+# Extra Arguments
+, type ? ""
+}:
 
 let
-  pname = "krb5";
-  version = "1.13.1";
-  name = "${pname}-${version}";
-  webpage = http://web.mit.edu/kerberos/;
+  libOnly = type == "lib";
 in
-
-stdenv.mkDerivation (rec {
-  inherit name;
+with stdenv.lib;
+stdenv.mkDerivation rec {
+  name = "${type}krb5-${version}";
+  majorVersion = "1.15";
+  version = "${majorVersion}.2";
 
   src = fetchurl {
-    url = "${webpage}dist/krb5/1.13/${name}-signed.tar";
-    sha256 = "0gk6jvr64rf6l4xcyxn8i3fr5d1j7dhqvwyv3vw2qdkzz7yjkxjd";
+    url = "${meta.homepage}dist/krb5/${majorVersion}/krb5-${version}.tar.gz";
+    sha256 = "0zn8s7anb10hw3nzwjz7vg10fgmmgvwnibn2zrn3nppjxn9f6f8n";
   };
 
-  buildInputs = [ pkgconfig perl ncurses yacc openssl openldap ]
-    # Provides the mig command used by the build scripts
-    ++ stdenv.lib.optional stdenv.isDarwin bootstrap_cmds ;
+  outputs = [ "out" "dev" ];
 
-  unpackPhase = ''
-    tar -xf $src
-    tar -xzf ${name}.tar.gz
-    cd ${name}/src
+  configureFlags = [ "--with-tcl=no" "--localstatedir=/var/lib"]
+    ++ optional stdenv.isFreeBSD ''WARN_CFLAGS=""'';
+
+  nativeBuildInputs = [ pkgconfig perl ]
+    ++ optional (!libOnly) yacc
+    # Provides the mig command used by the build scripts
+    ++ optional stdenv.isDarwin bootstrap_cmds;
+  buildInputs = [ openssl ]
+    ++ optionals (!libOnly) [ openldap libedit ];
+
+  preConfigure = "cd ./src";
+
+  buildPhase = optionalString libOnly ''
+    MAKE="make -j $NIX_BUILD_CORES -l $NIX_BUILD_CORES"
+    (cd util; $MAKE)
+    (cd include; $MAKE)
+    (cd lib; $MAKE)
+    (cd build-tools; $MAKE)
   '';
 
-  configureFlags = [ "--with-tcl=no" ];
+  installPhase = optionalString libOnly ''
+    mkdir -p "$out"/{bin,sbin,lib/pkgconfig,share/{et,man/man1}} \
+      "$dev"/include/{gssapi,gssrpc,kadm5,krb5}
+    (cd util; $MAKE install)
+    (cd include; $MAKE install)
+    (cd lib; $MAKE install)
+    (cd build-tools; $MAKE install)
+    ${postInstall}
+  '';
+
+  # not via outputBin, due to reference from libkrb5.so
+  postInstall = ''
+    moveToOutput bin "$dev"
+  '';
 
   enableParallelBuilding = true;
 
-  meta = with stdenv.lib; {
+  meta = {
     description = "MIT Kerberos 5";
-    homepage = webpage;
-    license = "MPL";
+    homepage = http://web.mit.edu/kerberos/;
+    license = licenses.mit;
     platforms = platforms.unix;
     maintainers = with maintainers; [ wkennington ];
   };
 
   passthru.implementation = "krb5";
-})
+}

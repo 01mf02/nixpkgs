@@ -1,6 +1,7 @@
 { stdenv, fetchurl, lightdm, pkgconfig, intltool
 , hicolor_icon_theme, makeWrapper
 , useGTK2 ? false, gtk2, gtk3 # gtk3 seems better supported
+, exo
 }:
 
 #ToDo: bad icons with gtk2;
@@ -8,17 +9,18 @@
 
 let
   ver_branch = "2.0";
-  version = "2.0.0";
+  version = "2.0.3";
 in
 stdenv.mkDerivation rec {
   name = "lightdm-gtk-greeter-${version}";
 
   src = fetchurl {
     url = "${meta.homepage}/${ver_branch}/${version}/+download/${name}.tar.gz";
-    sha256 = "1134q8qd7gr34jkivqxckdnwbpa8pl7dhjpdi9fci0pcs4hh22jc";
+    sha256 = "0c6v2myzqj8nzpcqyvbab7c66kwgcshw2chn5r6dhm7xrx19bcrx";
   };
 
-  buildInputs = [ pkgconfig lightdm intltool makeWrapper ]
+  nativeBuildInputs = [ pkgconfig ];
+  buildInputs = [ lightdm exo intltool makeWrapper ]
     ++ (if useGTK2 then [ gtk2 ] else [ gtk3 ]);
 
   configureFlags = [

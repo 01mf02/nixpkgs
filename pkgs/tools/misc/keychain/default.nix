@@ -1,15 +1,16 @@
 { stdenv, fetchFromGitHub, makeWrapper, coreutils, openssh, gnupg
-, perl, procps, gnugrep, gawk, findutils, gnused }:
+, perl, procps, gnugrep, gawk, findutils, gnused
+, withProcps ? stdenv.isLinux }:
 
 stdenv.mkDerivation rec {
   name = "keychain-${version}";
-  version = "2.8.0";
+  version = "2.8.3";
 
   src = fetchFromGitHub {
     owner = "funtoo";
     repo = "keychain";
-    rev = "1c8eaba53a7788d12d086b66ac3929810510f73a";
-    sha256 = "0ajas58cv8mp5wb6hn1zhsqiwfxvx69p4f91a5j2as299rxgrxlp";
+    rev = "${version}";
+    sha256 = "0za2fi4g7ixzj3izgwlv71b3cviz3qhz43y4bhdkglg16x5cnzcb";
   };
 
   buildInputs = [ makeWrapper perl ];
@@ -26,12 +27,17 @@ stdenv.mkDerivation rec {
       --prefix PATH ":" "${gnused}/bin" \
       --prefix PATH ":" "${findutils}/bin" \
       --prefix PATH ":" "${gawk}/bin" \
-      --prefix PATH ":" "${procps}/bin"
+      ${if withProcps then ("--prefix PATH \":\" ${procps}/bin") else ""}
   '';
 
   meta = {
     description = "Keychain management tool";
-    homepage = "http://www.funtoo.org/Keychain";
+    homepage = http://www.funtoo.org/Keychain;
     license = stdenv.lib.licenses.gpl2;
+    # other platforms are untested (AFAIK)
+    platforms =
+      with stdenv.lib;
+      platforms.linux ++ platforms.darwin;
+    maintainers = with stdenv.lib.maintainers; [ sigma ];
   };
 }

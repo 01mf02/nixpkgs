@@ -1,37 +1,35 @@
-{ stdenv, fetchurl, xz }:
+{ stdenv, fetchurl, fetchpatch, autoreconfHook, xz }:
 
 stdenv.mkDerivation rec {
-  name = "libunwind-1.1";
-  
+  name = "libunwind-${version}";
+  version = "1.2.1";
+
   src = fetchurl {
     url = "mirror://savannah/libunwind/${name}.tar.gz";
-    sha256 = "16nhx2pahh9d62mvszc88q226q5lwjankij276fxwrm8wb50zzlx";
+    sha256 = "1jsslwkilwrsj959dc8b479qildawz67r8m4lzxm7glcwa8cngiz";
   };
 
-  patches = [ ./libunwind-1.1-lzma.patch ];
+  patches = [
+    ./version-1.2.1.patch
+  ];
 
-  postPatch = ''
-    sed -i -e '/LIBLZMA/s:-lzma:-llzma:' configure
-  '';
+  nativeBuildInputs = [ autoreconfHook ];
+
+  outputs = [ "out" "dev" ];
 
   propagatedBuildInputs = [ xz ];
 
-  NIX_CFLAGS_COMPILE = if stdenv.system == "x86_64-linux" then "-fPIC" else "";
-  preInstall = ''
-    mkdir -p "$out/lib"
-    touch "$out/lib/libunwind-generic.so"
-  '';
-
   postInstall = ''
     find $out -name \*.la | while read file; do
-      sed -i 's,-llzma,${xz}/lib/liblzma.la,' $file
+      sed -i 's,-llzma,${xz.out}/lib/liblzma.la,' $file
     done
   '';
-  
+
   meta = with stdenv.lib; {
     homepage = http://www.nongnu.org/libunwind;
     description = "A portable and efficient API to determine the call-chain of a program";
+    maintainers = with maintainers; [ orivej ];
     platforms = platforms.linux;
-    license = licenses.gpl2;
+    license = licenses.mit;
   };
 }

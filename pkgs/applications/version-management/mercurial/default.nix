@@ -1,23 +1,27 @@
-{ stdenv, fetchurl, python, makeWrapper, docutils, unzip
-, guiSupport ? false, tk ? null, curses, cacert }:
+{ stdenv, fetchurl, python2Packages, makeWrapper, docutils, unzip
+, guiSupport ? false, tk ? null
+, ApplicationServices, cf-private }:
 
 let
-  version = "3.3.3";
+  # if you bump version, update pkgs.tortoisehg too or ping maintainer
+  version = "4.3.2";
   name = "mercurial-${version}";
-in
-
-stdenv.mkDerivation {
+  inherit (python2Packages) docutils hg-git dulwich python;
+in python2Packages.buildPythonApplication {
   inherit name;
+  format = "other";
 
   src = fetchurl {
-    url = "http://mercurial.selenic.com/release/${name}.tar.gz";
-    sha256 = "04xfzwb7jabzsfv2r18c3w6vwag7cjrl79xzg5i3mbyb1mzkcid4";
+    url = "https://mercurial-scm.org/release/${name}.tar.gz";
+    sha256 = "0j6djq584rcj9ghz59ddqzrfq49lykg3wqwap5fnzp9apa4gcnqg";
   };
 
   inherit python; # pass it so that the same version can be used in hg2git
-  pythonPackages = [ curses ];
 
-  buildInputs = [ python makeWrapper docutils unzip ];
+  buildInputs = [ makeWrapper docutils unzip ];
+
+  propagatedBuildInputs = [ hg-git dulwich ]
+    ++ stdenv.lib.optionals stdenv.isDarwin [ ApplicationServices cf-private ];
 
   makeFlags = "PREFIX=$(out)";
 
@@ -37,15 +41,8 @@ stdenv.mkDerivation {
     ''
       for i in $(cd $out/bin && ls); do
         wrapProgram $out/bin/$i \
-          --prefix PYTHONPATH : "$(toPythonPath "$out ${curses}")" \
           $WRAP_TK
       done
-
-      mkdir -p $out/etc/mercurial
-      cat >> $out/etc/mercurial/hgrc << EOF
-      [web]
-      cacerts = ${cacert}/etc/ssl/certs/ca-bundle.crt
-      EOF
 
       # copy hgweb.cgi to allow use in apache
       mkdir -p $out/share/cgi-bin
@@ -59,9 +56,11 @@ stdenv.mkDerivation {
   meta = {
     inherit version;
     description = "A fast, lightweight SCM system for very large distributed projects";
-    homepage = "http://mercurial.selenic.com/";
+    homepage = http://mercurial.selenic.com/;
     downloadPage = "http://mercurial.selenic.com/release/";
     license = stdenv.lib.licenses.gpl2;
     maintainers = [ stdenv.lib.maintainers.eelco ];
+    updateWalker = true;
+    platforms = stdenv.lib.platforms.unix;
   };
 }

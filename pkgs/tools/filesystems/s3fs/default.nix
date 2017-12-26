@@ -1,16 +1,30 @@
-{stdenv, fetchurl, autoconf, automake, pkgconfig, curl, openssl, libxml2, fuse}:
+{ stdenv, fetchFromGitHub, autoreconfHook, pkgconfig, curl, openssl, libxml2, fuse }:
 
-stdenv.mkDerivation {
-  name = "s3fs-fuse-1.78";
-  src = fetchurl {
-    url = https://github.com/s3fs-fuse/s3fs-fuse/archive/v1.78.tar.gz;
-    sha256 = "1xcp0bqa4a2ynjn5phb1pj70wm322czhqp4qcb27d5jd545b1h1n";
+stdenv.mkDerivation rec {
+  name = "s3fs-fuse-${version}";
+  version = "1.82";
+
+  src = fetchFromGitHub {
+    owner  = "s3fs-fuse";
+    repo   = "s3fs-fuse";
+    rev    = "v${version}";
+    sha256 = "0bammbb8h10n51qk5141gabsd5p91qbaqq7cwa1q8yf5qglwlp10";
   };
-  preConfigure = "./autogen.sh";
-  buildInputs = [ autoconf automake pkgconfig curl openssl libxml2 fuse ];
-  
+
+  buildInputs = [ curl openssl libxml2 fuse ];
+  nativeBuildInputs = [ autoreconfHook pkgconfig ];
+
+  configureFlags = [
+    "--with-openssl"
+  ];
+
+  postInstall = ''
+    ln -s $out/bin/s3fs $out/bin/mount.s3fs
+  '';
+
   meta = with stdenv.lib; {
     description = "Mount an S3 bucket as filesystem through FUSE";
     license = licenses.gpl2;
+    platforms = platforms.linux;
   };
 }

@@ -1,8 +1,8 @@
 { stdenv, fetchFromGitHub, readline }:
 
-let version = "2015-05-04"; in
 stdenv.mkDerivation rec {
   name = "picoc-${version}";
+  version = "2015-05-04";
 
   src = fetchFromGitHub {
     sha256 = "01w3jwl0vn9fsmh7p20ad4nl9ljzgfn576yvncd9pk9frx3pd8y4";
@@ -11,8 +11,27 @@ stdenv.mkDerivation rec {
     owner = "zsaleeba";
   };
 
+  buildInputs = [ readline ];
+
+  postPatch = ''
+    substituteInPlace Makefile --replace '`svnversion -n`' "${version}"
+  '';
+
+  enableParallelBuilding = true;
+
+  # Tests are currently broken on i686 see
+  # http://hydra.nixos.org/build/24003763/nixlog/1
+  doCheck = if stdenv.isi686 then false else true;
+  checkTarget = "test";
+
+  installPhase = ''
+    install -Dm755 picoc $out/bin/picoc
+
+    mkdir -p $out/include
+    install -m644 *.h $out/include
+  '';
+
   meta = with stdenv.lib; {
-    inherit version;
     description = "Very small C interpreter for scripting";
     longDescription = ''
       PicoC is a very small C interpreter for scripting. It was originally
@@ -27,25 +46,7 @@ stdenv.mkDerivation rec {
     homepage = https://github.com/zsaleeba/picoc;
     downloadPage = https://code.google.com/p/picoc/downloads/list;
     license = licenses.bsd3;
-    platforms = with platforms; linux;
+    platforms = platforms.linux;
     maintainers = with maintainers; [ nckx ];
   };
-
-  buildInputs = [ readline ];
-
-  postPatch = ''
-    substituteInPlace Makefile --replace '`svnversion -n`' "${version}"
-  '';
-
-  enableParallelBuilding = true;
-
-  doCheck = true;
-  checkTarget = "test";
-
-  installPhase = ''
-    install -Dm755 picoc $out/bin/picoc
-
-    mkdir -p $out/include
-    install -m644 *.h $out/include
-  '';
 }

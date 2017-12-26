@@ -12,7 +12,7 @@ evalConfig() {
     local attr=$1
     shift;
     local script="import ./default.nix { modules = [ $@ ];}"
-    nix-instantiate --timeout 1 -E "$script" -A "$attr" --eval-only
+    nix-instantiate --timeout 1 -E "$script" -A "$attr" --eval-only --show-trace
 }
 
 reportFailure() {
@@ -61,6 +61,16 @@ checkConfigError() {
 checkConfigOutput "false" config.enable ./declare-enable.nix
 checkConfigError 'The option .* defined in .* does not exist.' config.enable ./define-enable.nix
 
+# Check integer types.
+# unsigned
+checkConfigOutput "42" config.value ./declare-int-unsigned-value.nix ./define-value-int-positive.nix
+checkConfigError 'The option value .* in .* is not of type.*unsigned integer.*' config.value ./declare-int-unsigned-value.nix ./define-value-int-negative.nix
+# positive
+checkConfigError 'The option value .* in .* is not of type.*positive integer.*' config.value ./declare-int-positive-value.nix ./define-value-int-zero.nix
+# between
+checkConfigOutput "42" config.value ./declare-int-between-value.nix ./define-value-int-positive.nix
+checkConfigError 'The option value .* in .* is not of type.*between.*-21 and 43.*inclusive.*' config.value ./declare-int-between-value.nix ./define-value-int-negative.nix
+
 # Check mkForce without submodules.
 set -- config.enable ./declare-enable.nix ./define-enable.nix
 checkConfigOutput "true" "$@"
@@ -99,13 +109,34 @@ checkConfigOutput 'true' "$@" ./define-enable.nix ./define-loaOfSub-if-foo-enabl
 checkConfigOutput 'true' "$@" ./define-enable.nix ./define-loaOfSub-foo-if-enable.nix
 checkConfigOutput 'true' "$@" ./define-enable.nix ./define-loaOfSub-foo-enable-if.nix
 
+# Check disabledModules with config definitions and option declarations.
+set -- config.enable ./define-enable.nix ./declare-enable.nix
+checkConfigOutput "true" "$@"
+checkConfigOutput "false" "$@" ./disable-define-enable.nix
+checkConfigError "The option .*enable.* defined in .* does not exist" "$@" ./disable-declare-enable.nix
+checkConfigError "attribute .*enable.* in selection path .*config.enable.* not found" "$@" ./disable-define-enable.nix ./disable-declare-enable.nix
+checkConfigError "attribute .*enable.* in selection path .*config.enable.* not found" "$@" ./disable-enable-modules.nix
+
 # Check _module.args.
-checkConfigOutput "true" config.enable ./declare-enable.nix ./custom-arg-define-enable.nix
+set -- config.enable ./declare-enable.nix ./define-enable-with-custom-arg.nix
+checkConfigError 'while evaluating the module argument .*custom.* in .*define-enable-with-custom-arg.nix.*:' "$@"
+checkConfigOutput "true" "$@" ./define-_module-args-custom.nix
+
+# Check that using _module.args on imports cause infinite recursions, with
+# the proper error context.
+set -- "$@" ./define-_module-args-custom.nix ./import-custom-arg.nix
+checkConfigError 'while evaluating the module argument .*custom.* in .*import-custom-arg.nix.*:' "$@"
+checkConfigError 'infinite recursion encountered' "$@"
 
 # Check _module.check.
 set -- config.enable ./declare-enable.nix ./define-enable.nix ./define-loaOfSub-foo.nix
 checkConfigError 'The option .* defined in .* does not exist.' "$@"
 checkConfigOutput "true" "$@" ./define-module-check.nix
+
+# Check coerced value.
+checkConfigOutput "\"42\"" config.value ./declare-coerced-value.nix
+checkConfigOutput "\"24\"" config.value ./declare-coerced-value.nix ./define-value-string.nix
+checkConfigError 'The option value .* in .* is not.*string or signed integer.*' config.value ./declare-coerced-value.nix ./define-value-list.nix
 
 cat <<EOF
 ====== module tests ======

@@ -1,14 +1,14 @@
-{ stdenv, fetchFromGitHub, makeWrapper, parallel, sqlite }:
+{ stdenv, fetchFromGitHub, makeWrapper, parallel, sqlite, bc }:
 
 stdenv.mkDerivation rec {
-  version = "2.34";
+  version = "2.36";
   name = "profile-cleaner-${version}";
 
   src = fetchFromGitHub {
     owner = "graysky2";
     repo = "profile-cleaner";
     rev = "v${version}";
-    sha256 = "17z73xyn31668f7vmbj7xs659fcrm0m0mnzja7hz6lipfaviqxrs";
+    sha256 = "0vm4ca99dyr6i0sfjsr0w06i0rbmqf40kp37h04bk4c8yassq1zq";
   };
 
   buildInputs = [ makeWrapper ];
@@ -16,7 +16,7 @@ stdenv.mkDerivation rec {
   installPhase = ''
     PREFIX=\"\" DESTDIR=$out make install
     wrapProgram $out/bin/profile-cleaner \
-      --prefix PATH : "${parallel}/bin:${sqlite}/bin"
+      --prefix PATH : "${stdenv.lib.makeBinPath [ parallel sqlite bc ]}"
   '';
 
   meta = {

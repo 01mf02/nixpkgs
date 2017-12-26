@@ -1,8 +1,8 @@
 { stdenv, fetchurl, flac, fuse, lame, libid3tag, pkgconfig }:
 
-let version = "0.91"; in
 stdenv.mkDerivation rec {
   name = "mp3fs-${version}";
+  version = "0.91";
 
   src = fetchurl {
     url = "https://github.com/khenriks/mp3fs/releases/download/v${version}/${name}.tar.gz";
@@ -11,7 +11,8 @@ stdenv.mkDerivation rec {
 
   patches = [ ./fix-statfs-operation.patch ];
 
-  buildInputs = [ flac fuse lame libid3tag pkgconfig ];
+  buildInputs = [ flac fuse lame libid3tag ];
+  nativeBuildInputs = [ pkgconfig ];
 
   enableParallelBuilding = true;
 
@@ -26,7 +27,7 @@ stdenv.mkDerivation rec {
     '';
     homepage = http://khenriks.github.io/mp3fs/;
     license = licenses.gpl3Plus;
-    platforms = with platforms; linux;
+    platforms = platforms.linux;
     maintainers = with maintainers; [ nckx ];
   };
 }

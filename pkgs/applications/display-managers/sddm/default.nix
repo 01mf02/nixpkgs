@@ -1,47 +1,63 @@
-{ stdenv, fetchpatch, makeWrapper, fetchFromGitHub, cmake, pkgconfig, libxcb, libpthreadstubs
-, libXdmcp, libXau, qt5, pam, systemd }:
+{ mkDerivation, lib, fetchFromGitHub, fetchpatch
+, cmake, extra-cmake-modules, pkgconfig, libxcb, libpthreadstubs, lndir
+, libXdmcp, libXau, qtbase, qtdeclarative, qttools, pam, systemd
+}:
 
 let
-  version = "0.11.0";
-in
-stdenv.mkDerivation rec {
+  version = "0.17.0";
+
+in mkDerivation rec {
   name = "sddm-${version}";
 
   src = fetchFromGitHub {
     owner = "sddm";
     repo = "sddm";
     rev = "v${version}";
-    sha256 = "1s1gm0xvgwzrpxgni3ngdj8phzg21gkk1jyiv2l2i5ayl0jdm7ig";
+    sha256 = "1m35ly6miwy8ivsln3j1bfv0nxbc4gyqnj7f847zzp53jsqrm3mq";
   };
 
-  nativeBuildInputs = [ cmake pkgconfig qt5.tools makeWrapper ];
+  patches = [ ./sddm-ignore-config-mtime.patch ];
 
-  buildInputs = [ libxcb libpthreadstubs libXdmcp libXau qt5.base pam systemd ];
+  postPatch =
+    # Module Qt5::Test must be included in `find_package` before it is used.
+    ''
+      sed -i CMakeLists.txt -e '/find_package(Qt5/ s|)| Test)|'
+    '';
 
-  patches = [ (fetchpatch {
-                url = "https://github.com/sddm/sddm/commit/9bc21ee7da5de6b2531d47d1af4d7b0a169990b9.patch";
-                sha256 = "1pda0wf4xljdadja7iyh5c48h0347imadg9ya1dw5slgb7w1d94l";
-              })
-              ./cmake_paths.patch
-            ];
+  nativeBuildInputs = [ cmake extra-cmake-modules pkgconfig qttools ];
 
-  cmakeFlags = [ "-DCONFIG_FILE=/etc/sddm.conf" ];
+  buildInputs = [
+    libxcb libpthreadstubs libXdmcp libXau pam qtbase qtdeclarative systemd
+  ];
+
+  cmakeFlags = [
+    "-DCONFIG_FILE=/etc/sddm.conf"
+    # Set UID_MIN and UID_MAX so that the build script won't try
+    # to read them from /etc/login.defs (fails in chroot).
+    # The values come from NixOS; they may not be appropriate
+    # for running SDDM outside NixOS, but that configuration is
+    # not supported anyway.
+    "-DUID_MIN=1000"
+    "-DUID_MAX=29999"
+  ];
 
   preConfigure = ''
-    export cmakeFlags="$cmakeFlags -DQT_IMPORTS_DIR=$out/lib/qt5/qml -DCMAKE_INSTALL_SYSCONFDIR=$out/etc -DSYSTEMD_SYSTEM_UNIT_DIR=$out/lib/systemd/system"
+    export cmakeFlags="$cmakeFlags -DQT_IMPORTS_DIR=$out/$qtQmlPrefix -DCMAKE_INSTALL_SYSCONFDIR=$out/etc -DSYSTEMD_SYSTEM_UNIT_DIR=$out/lib/systemd/system"
   '';
 
   postInstall = ''
-    wrapProgram $out/bin/sddm-greeter \
-      --set QML2_IMPORT_PATH "${qt5.declarative}/lib/qt5/qml/"
+    # remove empty scripts
+    rm "$out/share/sddm/scripts/Xsetup" "$out/share/sddm/scripts/Xstop"
+    for f in $out/share/sddm/themes/**/theme.conf ; do
+      substituteInPlace $f \
+        --replace 'background=' "background=$(dirname $f)/"
+    done
   '';
 
-  enableParallelBuilding = true;
-
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "QML based X11 display manager";
-    homepage = http://launchpad.net/lightdm;
-    platforms = platforms.linux;
-    maintainers = with maintainers; [ abbradar ];
+    homepage    = https://github.com/sddm/sddm;
+    maintainers = with maintainers; [ abbradar ttuegel ];
+    platforms   = platforms.linux;
   };
 }

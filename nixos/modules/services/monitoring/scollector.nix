@@ -20,9 +20,11 @@ let
           cfg.collectors)}
     '';
 
-  cmdLineOpts = concatStringsSep " " (
-    [ "-h=${cfg.bosunHost}" "-c=${collectors}" ] ++ cfg.extraOpts
-  );
+  conf = pkgs.writeText "scollector.toml" ''
+    Host = "${cfg.bosunHost}"
+    ColDir = "${collectors}"
+    ${cfg.extraConfig}
+  '';
 
 in {
 
@@ -41,6 +43,7 @@ in {
       package = mkOption {
         type = types.package;
         default = pkgs.scollector;
+        defaultText = "pkgs.scollector";
         example = literalExample "pkgs.scollector";
         description = ''
           scollector binary to use.
@@ -75,7 +78,7 @@ in {
       collectors = mkOption {
         type = with types; attrsOf (listOf path);
         default = {};
-        example = literalExample "{ 0 = [ \"\${postgresStats}/bin/collect-stats\" ]; }";
+        example = literalExample "{ \"0\" = [ \"\${postgresStats}/bin/collect-stats\" ]; }";
         description = ''
           An attribute set mapping the frequency of collection to a list of
           binaries that should be executed at that frequency. You can use "0"
@@ -89,6 +92,14 @@ in {
         example = [ "-d" ];
         description = ''
           Extra scollector command line options
+        '';
+      };
+
+      extraConfig = mkOption {
+        type = types.lines;
+        default = "";
+        description = ''
+          Extra scollector configuration added to the end of scollector.toml
         '';
       };
 
@@ -108,7 +119,7 @@ in {
         PermissionsStartOnly = true;
         User = cfg.user;
         Group = cfg.group;
-        ExecStart = "${cfg.package}/bin/scollector ${cmdLineOpts}";
+        ExecStart = "${cfg.package.bin}/bin/scollector -conf=${conf} ${lib.concatStringsSep " " cfg.extraOpts}";
       };
     };
 

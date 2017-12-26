@@ -6,6 +6,8 @@ let
 
   inherit (pkgs) ntp;
 
+  cfg = config.services.ntp;
+
   stateDir = "/var/lib/ntp";
 
   ntpUser = "ntp";
@@ -16,10 +18,10 @@ let
     restrict 127.0.0.1
     restrict -6 ::1
 
-    ${toString (map (server: "server " + server + " iburst\n") config.services.ntp.servers)}
+    ${toString (map (server: "server " + server + " iburst\n") cfg.servers)}
   '';
 
-  ntpFlags = "-c ${configFile} -u ${ntpUser}:nogroup";
+  ntpFlags = "-c ${configFile} -u ${ntpUser}:nogroup ${toString cfg.extraFlags}";
 
 in
 
@@ -32,7 +34,7 @@ in
     services.ntp = {
 
       enable = mkOption {
-        default = !config.boot.isContainer;
+        default = false;
         description = ''
           Whether to synchronise your machine's time using the NTP
           protocol.
@@ -40,15 +42,16 @@ in
       };
 
       servers = mkOption {
-        default = [
-          "0.nixos.pool.ntp.org"
-          "1.nixos.pool.ntp.org"
-          "2.nixos.pool.ntp.org"
-          "3.nixos.pool.ntp.org"
-        ];
+        default = config.networking.timeServers;
         description = ''
           The set of NTP servers from which to synchronise.
         '';
+      };
+
+      extraFlags = mkOption {
+        type = types.listOf types.str;
+        description = "Extra flags passed to the ntpd command.";
+        default = [];
       };
 
     };
@@ -62,6 +65,7 @@ in
 
     # Make tools such as ntpq available in the system path.
     environment.systemPackages = [ pkgs.ntp ];
+    services.timesyncd.enable = mkForce false;
 
     users.extraUsers = singleton
       { name = ntpUser;
@@ -74,6 +78,8 @@ in
       { description = "NTP Daemon";
 
         wantedBy = [ "multi-user.target" ];
+        wants = [ "time-sync.target" ];
+        before = [ "time-sync.target" ];
 
         preStart =
           ''

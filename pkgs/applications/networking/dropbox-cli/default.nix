@@ -1,6 +1,6 @@
 { stdenv, pkgconfig, fetchurl, python, dropbox }:
 let
-  version = "2015.02.12";
+  version = "2015.10.28";
   dropboxd = "${dropbox}/bin/dropbox";
 in
 stdenv.mkDerivation {
@@ -8,16 +8,19 @@ stdenv.mkDerivation {
 
   src = fetchurl {
     url = "https://linux.dropbox.com/packages/nautilus-dropbox-${version}.tar.bz2";
-    sha256 = "12md01ymxsly1rdhdi2sw3aiwykd4y8z8isipc8mjfk8bbp55q86";
+    sha256 = "1ai6vi5227z2ryxl403693xi63b42ylyfmzh8hbv4shp69zszm9c";
   };
 
-  buildInputs = [ pkgconfig python ];
+  nativeBuildInputs = [ pkgconfig ];
+  buildInputs = [ python ];
 
   phases = "unpackPhase installPhase";
 
   installPhase = ''
     mkdir -p "$out/bin/" "$out/share/applications"
     cp data/dropbox.desktop "$out/share/applications"
+    cp -a data/icons "$out/share/icons"
+    find "$out/share/icons" -type f \! -name '*.png' -delete
     substitute "dropbox.in" "$out/bin/dropbox" \
       --replace '@PACKAGE_VERSION@' ${version} \
       --replace '@DESKTOP_FILE_DIR@' "$out/share/applications" \

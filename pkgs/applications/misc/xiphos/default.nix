@@ -1,27 +1,31 @@
-{stdenv, fetchurl, pkgconfig
+{stdenv, fetchFromGitHub, pkgconfig
 , python
 , intltool
 , docbook2x, docbook_xml_dtd_412, libxslt
-, sword, clucene_core
+, sword, clucene_core, biblesync
 , gnome_doc_utils
 , libgsf, gconf
-, gtkhtml, libgtkhtml, libglade, scrollkeeper
+, gtkhtml, libglade, scrollkeeper
 , webkitgtk
-, dbus_glib, enchant, isocodes, libuuid
+, dbus_glib, enchant, isocodes, libuuid, icu
+, wrapGAppsHook
 }:
 
 stdenv.mkDerivation rec {
-  name = "xiphos-${version}";  
-  version = "4.0.0";
+  name = "xiphos-${version}";
+  version = "4.0.7";
 
-  src = fetchurl {
-    url = "http://downloads.sourceforge.net/project/gnomesword/Xiphos/${version}/${name}.tar.gz";
-    sha256 = "0rk9xhnaqm17af9ppjf2yqpy9p8s0z7m5ax586b7p16lylcqjh68";
+  src = fetchFromGitHub {
+    owner = "crosswire";
+    repo = "xiphos";
+    rev = "${version}";
+    sha256 = "1vwf1ps6nrajxl1qbs6v1cgykmq5wn4j09j10gbcd3b2nvrprf3g";
   };
 
-  buildInputs = [ pkgconfig python intltool docbook2x docbook_xml_dtd_412 libxslt
-                  sword clucene_core gnome_doc_utils libgsf gconf gtkhtml libgtkhtml
-                  libglade scrollkeeper webkitgtk dbus_glib enchant isocodes libuuid ];
+  nativeBuildInputs = [ pkgconfig wrapGAppsHook ];
+  buildInputs = [ python intltool docbook2x docbook_xml_dtd_412 libxslt
+                  sword clucene_core biblesync gnome_doc_utils libgsf gconf gtkhtml
+                  libglade scrollkeeper webkitgtk dbus_glib enchant isocodes libuuid icu ];
 
   prePatch = ''
     patchShebangs .;
@@ -31,11 +35,11 @@ stdenv.mkDerivation rec {
     export CLUCENE_HOME=${clucene_core};
     export SWORD_HOME=${sword};
   '';
-  
+
   configurePhase = ''
-    python waf configure --prefix=$out    
+    python waf configure --prefix=$out --enable-webkit2
   '';
-  
+
   buildPhase = ''
     python waf build
   '';
@@ -47,10 +51,10 @@ stdenv.mkDerivation rec {
   meta = with stdenv.lib; {
     description = "A GTK Bible study tool";
     longDescription = ''
-    Xiphos (formerly known as GnomeSword) is a Bible study tool
-    written for Linux, UNIX, and Windows using GTK, offering a rich
-    and featureful environment for reading, study, and research using
-    modules from The SWORD Project and elsewhere.
+      Xiphos (formerly known as GnomeSword) is a Bible study tool
+      written for Linux, UNIX, and Windows using GTK, offering a rich
+      and featureful environment for reading, study, and research using
+      modules from The SWORD Project and elsewhere.
     '';
     homepage = http://www.xiphos.org/;
     license = licenses.gpl2Plus;

@@ -1,28 +1,42 @@
-{ stdenv, fetchurl }:
+{ stdenv, fetchFromGitHub, gcc }:
 
 stdenv.mkDerivation rec {
   name = "icmake-${version}";
-  version = "7.22.01";
+  version = "9.02.03";
 
-  src = fetchurl {
-    url = "mirror://sourceforge/icmake/icmake_${version}.orig.tar.gz";
-    sha256 = "1iv6p9cyvr9i2sjhklplr65llg1ycxqy7z4dfgn0nkwxgs9yf8mm";
+  src = fetchFromGitHub {
+    sha256 = "1g3pdcd2i8n29rqwrdg6bd7qnsii55hi0rnma86hy0pm5cshpwi5";
+    rev = version;
+    repo = "icmake";
+    owner = "fbb-git";
   };
+
+
+  setSourceRoot = ''
+    sourceRoot=$(echo */icmake)
+  '';
+
+  buildInputs = [ gcc ];
 
   preConfigure = ''
     patchShebangs ./
-    sed -i "s;usr/;;g" INSTALL.im
+    substituteInPlace INSTALL.im --replace "usr/" ""
   '';
 
-  buildPhase = "./icm_bootstrap $out";
+  buildPhase = ''
+    ./icm_prepare $out
+    ./icm_bootstrap x
+  '';
 
-  installPhase = "./icm_install all /";
+  installPhase = ''
+    ./icm_install all /
+  '';
 
   meta = with stdenv.lib; {
     description = "A program maintenance (make) utility using a C-like grammar";
-    homepage = http://icmake.sourceforge.net/;
+    homepage = https://fbb-git.github.io/icmake/;
     license = licenses.gpl3;
-    maintainers = with maintainers; [ pSub ];
+    maintainers = with maintainers; [ nckx pSub ];
     platforms = platforms.linux;
   };
 }

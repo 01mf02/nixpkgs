@@ -1,4 +1,4 @@
-{ stdenv, fetchurl, ncurses, x11 }:
+{ stdenv, fetchurl, ncurses, xlibsWrapper }:
 
 let
    useX11 = stdenv.isi686 || stdenv.isx86_64;
@@ -8,7 +8,8 @@ in
 
 stdenv.mkDerivation rec {
   
-  name = "ocaml-3.11.2";
+  name = "ocaml-${version}";
+  version = "3.11.2";
   
   src = fetchurl {
     url = "http://caml.inria.fr/pub/distrib/ocaml-3.11/${name}.tar.bz2";
@@ -27,9 +28,9 @@ stdenv.mkDerivation rec {
     ];
 
   prefixKey = "-prefix ";
-  configureFlags = ["-no-tk"] ++ optionals useX11 [ "-x11lib" x11 ];
+  configureFlags = ["-no-tk"] ++ optionals useX11 [ "-x11lib" xlibsWrapper ];
   buildFlags = "world" + optionalString useNativeCompilers " bootstrap world.opt";
-  buildInputs = [ncurses] ++ optionals useX11 [ x11 ];
+  buildInputs = [ncurses] ++ optionals useX11 [ xlibsWrapper ];
   installTargets = "install" + optionalString useNativeCompilers " installopt";
   prePatch = ''
     CAT=$(type -tp cat)

@@ -7,6 +7,13 @@ with lib;
 
 {
   environment.noXlibs = mkDefault true;
-  i18n.supportedLocales = [ config.i18n.defaultLocale ];
+
+  # This isn't perfect, but let's expect the user specifies an UTF-8 defaultLocale
+  i18n.supportedLocales = [ (config.i18n.defaultLocale + "/UTF-8") ];
   services.nixosManual.enable = mkDefault false;
+
+  programs.man.enable = mkDefault false;
+  programs.info.enable = mkDefault false;
+
+  sound.enable = mkDefault false;
 }

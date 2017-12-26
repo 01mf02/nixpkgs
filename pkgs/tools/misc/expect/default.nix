@@ -1,8 +1,7 @@
 { stdenv, fetchurl, tcl, makeWrapper }:
 
-let version = "5.45";
-in
-stdenv.mkDerivation {
+stdenv.mkDerivation rec {
+  version = "5.45";
   name = "expect-${version}";
 
   src = fetchurl {
@@ -12,6 +11,8 @@ stdenv.mkDerivation {
 
   buildInputs = [ tcl ];
   nativeBuildInputs = [ makeWrapper ];
+
+  hardeningDisable = [ "format" ];
 
   patchPhase = ''
     sed -i "s,/bin/stty,$(type -p stty),g" configure
@@ -27,15 +28,16 @@ stdenv.mkDerivation {
     for i in $out/bin/*; do
       wrapProgram $i \
         --prefix PATH : "${tcl}/bin" \
-        --prefix TCLLIBPATH ' ' $out/lib/*
+        --prefix TCLLIBPATH ' ' $out/lib/* \
+        ${stdenv.lib.optionalString stdenv.isDarwin "--prefix DYLD_LIBRARY_PATH : $out/lib/expect${version}"}
     done
   '';
 
   meta = with stdenv.lib; {
     description = "A tool for automating interactive applications";
-    homepage = http://expect.nist.gov/;
+    homepage = http://expect.sourceforge.net/;
     license = "Expect";
-    platforms = platforms.linux;
+    platforms = platforms.unix;
     maintainers = with maintainers; [ wkennington ];
   };
 }

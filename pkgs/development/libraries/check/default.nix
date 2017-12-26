@@ -1,16 +1,20 @@
-{ fetchurl, stdenv }:
+{ fetchurl, stdenv
+, CoreServices
+}:
 
-let version = "0.9.14"; in
-stdenv.mkDerivation {
+stdenv.mkDerivation rec {
   name = "check-${version}";
+  version = "0.11.0";
 
   src = fetchurl {
-    url = "mirror://sourceforge/check/${version}/check-${version}.tar.gz";
-    sha256 = "02l4g79d81s07hzywcv1knwj5dyrwjiq2pgxaz7kidxi8m364wn2";
+    url = "https://github.com/libcheck/check/releases/download/${version}/check-${version}.tar.gz";
+    sha256 = "05jn1pgb7hqb937xky2147nnq3r4qy5wwr79rddpax3bms5a9xr4";
   };
 
   # Test can randomly fail: http://hydra.nixos.org/build/7243912
   doCheck = false;
+
+  buildInputs = stdenv.lib.optional stdenv.isDarwin CoreServices;
 
   meta = with stdenv.lib; {
     description = "Unit testing framework for C";
@@ -24,7 +28,7 @@ stdenv.mkDerivation {
          can be used within source code editors and IDEs.
       '';
 
-    homepage = http://check.sourceforge.net/;
+    homepage = https://libcheck.github.io/check/;
 
     license = licenses.lgpl2Plus;
     platforms = platforms.all;

@@ -1,18 +1,21 @@
-{ stdenv, fetchurl, boost, libX11, mesa, liblo, jack2, ladspaH, lv2, pkgconfig, rubberband, libsndfile }:
+{ stdenv, fetchgit , boost, libX11, mesa, liblo, libjack2, ladspaH, lv2, pkgconfig, rubberband, libsndfile }:
 
 stdenv.mkDerivation rec {
   name = "zam-plugins-${version}";
-  version = "3.5";
+  version = "3.9";
 
-  src = fetchurl {
-    url = "https://github.com/zamaudio/zam-plugins/archive/${version}.tar.gz";
-    sha256 = "0icdrs4vaaj8gqi76jkkx5yk9h3agipa11cyb5h52y814q6mx6vm";
+  src = fetchgit {
+    url = "https://github.com/zamaudio/zam-plugins.git";
+    deepClone = true;
+    rev = "4976cf204074c1dfaf344821e83e8d896b35107d";
+    sha256 = "1xgwl51sf2hgc5ikcnycyxaw9vy82lrcswn07b6av6i67qclm8f8";
   };
 
-  buildInputs = [ boost libX11 mesa liblo jack2 ladspaH lv2 pkgconfig rubberband libsndfile ];
+  nativeBuildInputs = [ pkgconfig ];
+  buildInputs = [ boost libX11 mesa liblo libjack2 ladspaH lv2 rubberband libsndfile ];
 
   patchPhase = ''
-    patchShebangs ./libs/generate-ttl.sh
+    patchShebangs ./dpf/utils/generate-ttl.sh
   '';
 
   makeFlags = [

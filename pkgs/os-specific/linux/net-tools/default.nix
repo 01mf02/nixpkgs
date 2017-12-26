@@ -1,11 +1,11 @@
 { stdenv, fetchurl }:
 
 stdenv.mkDerivation rec {
-  name = "net-tools-1.60_p20120127084908";
+  name = "net-tools-1.60_p20161110235919";
 
   src = fetchurl {
     url = "mirror://gentoo/distfiles/${name}.tar.xz";
-    sha256 = "408a51964aa142a4f45c4cffede2478abbd5630a7c7346ba0d3611059a2a3c94";
+    sha256 = "1kbgwkys45kb5wqhchi1kf0sfw93c1cl0hgyw7yhacxzdfxjmdfr";
   };
 
   preBuild =
@@ -13,10 +13,18 @@ stdenv.mkDerivation rec {
       cp ${./config.h} config.h
     '';
 
-  makeFlags = "BASEDIR=$(out) mandir=/share/man";
+  makeFlags = [
+    "BASEDIR=$(out)"
+    "mandir=/share/man"
+    "HAVE_ARP_TOOLS=1"
+    "HAVE_PLIP_TOOLS=1"
+    "HAVE_SERIAL_TOOLS=1"
+    "HAVE_HOSTNAME_TOOLS=1"
+    "HAVE_HOSTNAME_SYMLINKS=1"
+  ];
 
   meta = {
-    homepage = http://www.tazenda.demon.co.uk/phil/net-tools/;
+    homepage = http://net-tools.sourceforge.net/;
     description = "A set of tools for controlling the network subsystem in Linux";
     license = stdenv.lib.licenses.gpl2Plus;
     platforms = stdenv.lib.platforms.linux;

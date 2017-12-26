@@ -1,14 +1,14 @@
-{ stdenv, lib, bundlerEnv, ruby, perl }:
+{ stdenv, lib, bundlerEnv, ruby_2_4, perl, autoconf }:
 
 bundlerEnv {
-  name = "chefdk-0.4.0";
+  # Last updated via:
+  # nix-shell -p bundix -p gcc -p libxml2 -p zlib --run "bundix -mdl"
+  name = "chefdk-2.4.17";
 
-  inherit ruby;
-  gemfile = ./Gemfile;
-  lockfile = ./Gemfile.lock;
-  gemset = ./gemset.nix;
+  ruby = ruby_2_4;
+  gemdir = ./.;
 
-  buildInputs = [ perl ];
+  buildInputs = [ perl autoconf ];
 
   meta = with lib; {
     description = "A streamlined development and deployment workflow for Chef platform";

@@ -7,9 +7,10 @@
 
 with stdenv.lib;
 let
-  mkFlag = trueStr: falseStr: cond: name: val:
-    if cond == null then null else
-      "--${if cond != false then trueStr else falseStr}${name}${if val != null && cond != false then "=${val}" else ""}";
+  mkFlag = trueStr: falseStr: cond: name: val: "--"
+    + (if cond then trueStr else falseStr)
+    + name
+    + optionalString (val != null && cond != false) "=${val}";
   mkEnable = mkFlag "enable-" "disable-";
   mkWith = mkFlag "with-" "without-";
   mkOther = mkFlag "" "" true;
@@ -26,13 +27,13 @@ let
 in
 stdenv.mkDerivation rec {
   name = "wiredtiger-${version}";
-  version = "2.6.0";
+  version = "2.6.1";
 
   src = fetchFromGitHub {
     repo = "wiredtiger";
     owner = "wiredtiger";
     rev = version;
-    sha256 = "0i2r03bpq9xzp5pw7c67kjac5j7mssiawd9id8lqjdbr6c6772cv";
+    sha256 = "1nj319w3hvkq3za2dz9m0p1w683gycdb392v1jb910bhzpsq30pd";
   };
 
   nativeBuildInputs = [ automake autoconf libtool ];
@@ -58,11 +59,18 @@ stdenv.mkDerivation rec {
     ./autogen.sh
   '';
 
+  prePatch = stdenv.lib.optionalString stdenv.isDarwin ''
+    substituteInPlace api/leveldb/leveldb_wt.h --replace \
+      '#include "wiredtiger.h"' \
+      ''$'#include "wiredtiger.h"\n#include "pthread.h"'
+  '';
+
   meta = {
     homepage = http://wiredtiger.com/;
     description = "";
     license = licenses.gpl2;
     platforms = intersectLists platforms.unix platforms.x86_64;
     maintainers = with maintainers; [ wkennington ];
+    broken = true; # Broken by f689a6d1c6796c4a4f116ffec6c4624379e04bc9.
   };
 }

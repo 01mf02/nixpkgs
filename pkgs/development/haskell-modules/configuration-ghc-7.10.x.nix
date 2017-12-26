@@ -1,6 +1,6 @@
-{ pkgs }:
+{ pkgs, haskellLib }:
 
-with import ./lib.nix { inherit pkgs; };
+with haskellLib;
 
 self: super: {
 
@@ -18,7 +18,10 @@ self: super: {
   deepseq = null;
   directory = null;
   filepath = null;
+  ghc-boot = null;
+  ghc-boot-th = null;
   ghc-prim = null;
+  ghci = null;
   haskeline = null;
   hoopl = null;
   hpc = null;
@@ -33,57 +36,32 @@ self: super: {
   unix = null;
   xhtml = null;
 
-  # ekmett/linear#74
-  linear = overrideCabal super.linear (drv: {
-    prePatch = "sed -i 's/-Werror//g' linear.cabal";
-  });
+  # Build jailbreak-cabal with the latest version of Cabal.
+  jailbreak-cabal = super.jailbreak-cabal.override { Cabal = self.Cabal_1_24_2_0; };
 
-  # Cabal_1_22_1_1 requires filepath >=1 && <1.4
-  cabal-install = dontCheck (super.cabal-install.override { Cabal = null; });
+  gtk2hs-buildtools = super.gtk2hs-buildtools.override { Cabal = self.Cabal_1_24_2_0; };
 
-  # Don't use jailbreak built with Cabal 1.22.x because of https://github.com/peti/jailbreak-cabal/issues/9.
-  jailbreak-cabal = pkgs.haskell.packages.ghc784.jailbreak-cabal;
-
-  # GHC 7.10.x's Haddock binary cannot generate hoogle files.
-  # https://ghc.haskell.org/trac/ghc/ticket/9921
-  mkDerivation = drv: super.mkDerivation (drv // { doHoogle = false; });
-
-  idris =
-    let idris' = overrideCabal super.idris (drv: {
-      # "idris" binary cannot find Idris library otherwise while building.
-      # After installing it's completely fine though.
-      # Seems like Nix-specific issue so not reported.
-      preBuild = ''
-        export LD_LIBRARY_PATH=$PWD/dist/build:$LD_LIBRARY_PATH
-      '';
-    });
-    in idris'.overrideScope (self: super: {
-      zlib = self.zlib_0_5_4_2;
-    });
+  megaparsec = addBuildDepend super.megaparsec self.fail;
 
   Extra = appendPatch super.Extra (pkgs.fetchpatch {
     url = "https://github.com/seereason/sr-extra/commit/29787ad4c20c962924b823d02a7335da98143603.patch";
     sha256 = "193i1xmq6z0jalwmq0mhqk1khz6zz0i1hs6lgfd7ybd6qyaqnf5f";
   });
 
+  # Requires ghc 8.2
+  ghc-proofs = dontDistribute super.ghc-proofs;
+
   # haddock: No input file(s).
   nats = dontHaddock super.nats;
   bytestring-builder = dontHaddock super.bytestring-builder;
 
-  # We have time 1.5
-  aeson = disableCabalFlag super.aeson "old-locale";
-
-  # requires filepath >=1.1 && <1.4
-  Glob = doJailbreak super.Glob;
-
   # Setup: At least the following dependencies are missing: base <4.8
   hspec-expectations = overrideCabal super.hspec-expectations (drv: {
-    patchPhase = "sed -i -e 's|base < 4.8|base|' hspec-expectations.cabal";
+    postPatch = "sed -i -e 's|base < 4.8|base|' hspec-expectations.cabal";
   });
   utf8-string = overrideCabal super.utf8-string (drv: {
-    patchPhase = "sed -i -e 's|base >= 3 && < 4.8|base|' utf8-string.cabal";
+    postPatch = "sed -i -e 's|base >= 3 && < 4.8|base|' utf8-string.cabal";
   });
-  pointfree = doJailbreak super.pointfree;
 
   # acid-state/safecopy#25 acid-state/safecopy#26
   safecopy = dontCheck (super.safecopy);
@@ -99,14 +77,15 @@ self: super: {
   # Test suite has stricter version bounds
   retry = dontCheck super.retry;
 
+  # test/System/Posix/Types/OrphansSpec.hs:19:13:
+  #    Not in scope: type constructor or class ‘Int32’
+  base-orphans = dontCheck super.base-orphans;
+
   # Test suite fails with time >= 1.5
   http-date = dontCheck super.http-date;
 
   # Version 1.19.5 fails its test suite.
   happy = dontCheck super.happy;
-
-  # Test suite fails in "/tokens_bytestring_unicode.g.bin".
-  alex = dontCheck super.alex;
 
   # Upstream was notified about the over-specified constraint on 'base'
   # but refused to do anything about it because he "doesn't want to
@@ -115,26 +94,6 @@ self: super: {
 
   # https://github.com/kazu-yamamoto/unix-time/issues/30
   unix-time = dontCheck super.unix-time;
-
-  present = appendPatch super.present (pkgs.fetchpatch {
-    url = "https://github.com/chrisdone/present/commit/6a61f099bf01e2127d0c68f1abe438cd3eaa15f7.patch";
-    sha256 = "1vn3xm38v2f4lzyzkadvq322f3s2yf8c88v56wpdpzfxmvlzaqr8";
-  });
-
-  # Already applied in darcs repository.
-  gnuplot = appendPatch super.gnuplot ./gnuplot-fix-new-time.patch;
-
-  ghcjs-prim = self.callPackage ({ mkDerivation, fetchgit, primitive }: mkDerivation {
-    pname = "ghcjs-prim";
-    version = "0.1.0.0";
-    src = fetchgit {
-      url = git://github.com/ghcjs/ghcjs-prim.git;
-      rev = "dfeaab2aafdfefe46bf12960d069f28d2e5f1454"; # ghc-7.10 branch
-      sha256 = "19kyb26nv1hdpp0kc2gaxkq5drw5ib4za0641py5i4bbf1g58yvy";
-    };
-    buildDepends = [ primitive ];
-    license = pkgs.stdenv.lib.licenses.bsd3;
-  }) {};
 
   # diagrams/monoid-extras#19
   monoid-extras = overrideCabal super.monoid-extras (drv: {
@@ -151,14 +110,7 @@ self: super: {
     prePatch = "sed -i 's|4\.8|4.9|' diagrams-core.cabal";
   });
 
-  misfortune = appendPatch super.misfortune (pkgs.fetchpatch {
-    url = "https://github.com/mokus0/misfortune/commit/9e0a38cf8d59a0de9ae1156034653f32099610e4.patch";
-    sha256 = "01m1l199ihq85j9pyc3n0wqv1z4my453hhhcvg3yz3gpz3lf224r";
-  });
-
-  timezone-series = doJailbreak super.timezone-series;
   timezone-olson = doJailbreak super.timezone-olson;
-  libmpd = dontCheck super.libmpd;
   xmonad-extras = overrideCabal super.xmonad-extras (drv: {
     postPatch = ''
       sed -i -e "s,<\*,<¤,g" XMonad/Actions/Volume.hs
@@ -169,40 +121,6 @@ self: super: {
   jsaddle = let jsaddle' = disableCabalFlag super.jsaddle "ghcjs";
             in addBuildDepends jsaddle' [ self.glib self.gtk3 self.webkitgtk3
                                           self.webkitgtk3-javascriptcore ];
-
-  # contacted maintainer by e-mail
-  cmdlib = markBrokenVersion "0.3.5" super.cmdlib;
-  darcs-fastconvert = dontDistribute super.darcs-fastconvert;
-  ivory-backend-c = dontDistribute super.ivory-backend-c;
-  ivory-bitdata = dontDistribute super.ivory-bitdata;
-  ivory-examples = dontDistribute super.ivory-examples;
-  ivory-hw = dontDistribute super.ivory-hw;
-  laborantin-hs = dontDistribute super.laborantin-hs;
-
-  # https://github.com/cartazio/arithmoi/issues/1
-  arithmoi = markBroken super.arithmoi;
-  NTRU = dontDistribute super.NTRU;
-  arith-encode = dontDistribute super.arith-encode;
-  barchart = dontDistribute super.barchart;
-  constructible = dontDistribute super.constructible;
-  cyclotomic = dontDistribute super.cyclotomic;
-  diagrams = dontDistribute super.diagrams;
-  diagrams-contrib = dontDistribute super.diagrams-contrib;
-  enumeration = dontDistribute super.enumeration;
-  ghci-diagrams = dontDistribute super.ghci-diagrams;
-  ihaskell-diagrams = dontDistribute super.ihaskell-diagrams;
-  nimber = dontDistribute super.nimber;
-  pell = dontDistribute super.pell;
-  quadratic-irrational = dontDistribute super.quadratic-irrational;
-
-  # https://github.com/kazu-yamamoto/ghc-mod/issues/437
-  ghc-mod = markBroken super.ghc-mod;
-  HaRe = dontDistribute super.HaRe;
-  ghc-imported-from = dontDistribute super.ghc-imported-from;
-  git-vogue = dontDistribute super.git-vogue;
-  haskell-token-utils = dontDistribute super.haskell-token-utils;
-  hbb = dontDistribute super.hbb;
-  hsdev = dontDistribute super.hsdev;
 
   # https://github.com/lymar/hastache/issues/47
   hastache = dontCheck super.hastache;
@@ -217,59 +135,77 @@ self: super: {
   tasty-rerun = dontHaddock (appendConfigureFlag super.tasty-rerun "--ghc-option=-XFlexibleContexts");
 
   # http://hub.darcs.net/ivanm/graphviz/issue/5
-  graphviz = dontCheck (dontJailbreak (appendPatch super.graphviz ./graphviz-fix-ghc710.patch));
-
-  # Broken with GHC 7.10.x.
-  aeson_0_7_0_6 = markBroken super.aeson_0_7_0_6;
-  Cabal_1_20_0_3 = markBroken super.Cabal_1_20_0_3;
-  cabal-install_1_18_1_0 = markBroken super.cabal-install_1_18_1_0;
-  containers_0_4_2_1 = markBroken super.containers_0_4_2_1;
-  control-monad-free_0_5_3 = markBroken super.control-monad-free_0_5_3;
-  haddock-api_2_15_0_2 = markBroken super.haddock-api_2_15_0_2;
-  optparse-applicative_0_10_0 = markBroken super.optparse-applicative_0_10_0;
-  QuickCheck_1_2_0_1 = markBroken super.QuickCheck_1_2_0_1;
-  seqid-streams_0_1_0 = markBroken super.seqid-streams_0_1_0;
-  vector_0_10_9_3 = markBroken super.vector_0_10_9_3;
-
-  # https://github.com/purefn/hipbot/issues/1
-  hipbot = dontDistribute super.hipbot;
+  graphviz = dontCheck (appendPatch super.graphviz ./patches/graphviz-fix-ghc710.patch);
 
   # https://github.com/HugoDaniel/RFC3339/issues/14
   timerep = dontCheck super.timerep;
 
-  # Upstream has no issue tracker.
-  harp = markBrokenVersion "0.4" super.harp;
-  happstack-authenticate = dontDistribute super.happstack-authenticate;
-
-  # Upstream has no issue tracker.
-  llvm-base-types = markBroken super.llvm-base-types;
-  llvm-analysis = dontDistribute super.llvm-analysis;
-  llvm-data-interop = dontDistribute super.llvm-data-interop;
-  llvm-tools = dontDistribute super.llvm-tools;
-
-  # Upstream has no issue tracker.
-  MaybeT = markBroken super.MaybeT;
-  grammar-combinators = dontDistribute super.grammar-combinators;
-
   # Required to fix version 0.91.0.0.
   wx = dontHaddock (appendConfigureFlag super.wx "--ghc-option=-XFlexibleContexts");
 
-  # Upstream has no issue tracker.
-  Graphalyze = markBroken super.Graphalyze;
-  gbu = dontDistribute super.gbu;
-  SourceGraph = dontDistribute super.SourceGraph;
+  # Inexplicable haddock failure
+  # https://github.com/gregwebs/aeson-applicative/issues/2
+  aeson-applicative = dontHaddock super.aeson-applicative;
 
-  # Upstream has no issue tracker.
-  markBroken = super.protocol-buffers;
-  caffegraph = dontDistribute super.caffegraph;
+  # GHC 7.10.1 is affected by https://github.com/srijs/hwsl2/issues/1.
+  hwsl2 = dontCheck super.hwsl2;
 
-  # Deprecated: https://github.com/mikeizbicki/ConstraintKinds/issues/8
-  ConstraintKinds = markBroken super.ConstraintKinds;
-  HLearn-approximation = dontDistribute super.HLearn-approximation;
-  HLearn-distributions = dontDistribute super.HLearn-distributions;
-  HLearn-classification = dontDistribute super.HLearn-classification;
+  # https://github.com/haskell/haddock/issues/427
+  haddock = dontCheck self.haddock_2_16_1;
 
-  # Won't work with LLVM 3.5.
-  llvm-general = markBrokenVersion "3.4.5.3" super.llvm-general;
+  # haddock-api >= 2.17 is GHC 8.0 only
+  haddock-api = self.haddock-api_2_16_1;
+  haddock-library = self.haddock-library_1_2_1;
+
+  # The tests in vty-ui do not build, but vty-ui itself builds.
+  vty-ui = enableCabalFlag super.vty-ui "no-tests";
+
+  # https://github.com/fpco/stackage/issues/1112
+  vector-algorithms = addBuildDepends (dontCheck super.vector-algorithms)
+    [ self.mtl self.mwc-random ];
+
+  # vector with ghc < 8.0 needs semigroups
+  vector = addBuildDepend super.vector self.semigroups;
+
+  # too strict dependency on directory
+  tasty-ant-xml = doJailbreak super.tasty-ant-xml;
+
+  # https://github.com/thoughtpolice/hs-ed25519/issues/13
+  ed25519 = dontCheck super.ed25519;
+
+  # https://github.com/well-typed/hackage-security/issues/157
+  # https://github.com/well-typed/hackage-security/issues/158
+  hackage-security = dontHaddock (dontCheck super.hackage-security);
+
+  # Breaks a dependency cycle between QuickCheck and semigroups
+  hashable = dontCheck super.hashable;
+  unordered-containers = dontCheck super.unordered-containers;
+
+  # GHC versions prior to 8.x require additional build inputs.
+  dependent-map = addBuildDepend super.dependent-map self.semigroups;
+  distributive = addBuildDepend (dontCheck super.distributive) self.semigroups;
+  mono-traversable = addBuildDepend super.mono-traversable self.semigroups;
+  attoparsec = addBuildDepends super.attoparsec (with self; [semigroups fail]);
+  Glob = addBuildDepends super.Glob (with self; [semigroups]);
+  aeson = disableCabalFlag (addBuildDepend super.aeson self.semigroups) "old-locale";
+  bytes = addBuildDepend super.bytes self.doctest;
+  case-insensitive = addBuildDepend super.case-insensitive self.semigroups;
+  hoauth2 = overrideCabal super.hoauth2 (drv: { testDepends = (drv.testDepends or []) ++ [ self.wai self.warp ]; });
+  hslogger = addBuildDepend super.hslogger self.HUnit;
+  intervals = addBuildDepends super.intervals (with self; [doctest QuickCheck]);
+  lens = addBuildDepend super.lens self.generic-deriving;
+  optparse-applicative = addBuildDepend super.optparse-applicative self.semigroups;
+  QuickCheck = addBuildDepend super.QuickCheck self.semigroups;
+  semigroups = addBuildDepends (dontCheck super.semigroups) (with self; [hashable tagged text unordered-containers]);
+  texmath = addBuildDepend super.texmath self.network-uri;
+  yesod-auth-oauth2 = overrideCabal super.yesod-auth-oauth2 (drv: { testDepends = (drv.testDepends or []) ++ [ self.load-env self.yesod ]; });
+  natural-transformation = addBuildDepend super.natural-transformation self.semigroups;
+  # cereal must have `fail` in pre-ghc-8.0.x versions
+  # also tests require bytestring>=0.10.8.1
+  cereal = dontCheck (addBuildDepend super.cereal self.fail);
+
+  # The test suite requires Cabal 1.24.x or later to compile.
+  comonad = dontCheck super.comonad;
+  semigroupoids = dontCheck super.semigroupoids;
 
 }

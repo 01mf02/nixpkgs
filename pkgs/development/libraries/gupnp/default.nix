@@ -1,24 +1,23 @@
-{ stdenv, fetchurl, pkgconfig, glib, libxml2, gssdp, libsoup, libuuid }:
+{ stdenv, fetchurl, pkgconfig, glib, gssdp, libsoup, libxml2, libuuid }:
  
 stdenv.mkDerivation rec {
   name = "gupnp-${version}";
-  majorVersion = "0.20";
-  version = "${majorVersion}.9";
+  majorVersion = "1.0";
+  version = "${majorVersion}.2";
+
   src = fetchurl {
     url = "mirror://gnome/sources/gupnp/${majorVersion}/gupnp-${version}.tar.xz";
-    sha256 = "0vicydn3f72x1rqql7857ans85mg7dfap7n7h8xrfyb9whxhlrb1";
+    sha256 = "043nqxlj030a3wvd6x4c9z8fjarjjjsl2pjarl0nn70ig6kzswsi";
   };
 
-  propagatedBuildInputs = [ libxml2 libsoup gssdp ];
-  buildInputs = [ glib libuuid ];
-
   nativeBuildInputs = [ pkgconfig ];
+  propagatedBuildInputs = [ glib gssdp libsoup libxml2 libuuid ];
 
-  postInstall = '' 
-    cp -r ${libsoup}/include/libsoup-2.4/libsoup $out/include
-    cp -r ${gssdp}/include/gssdp-1.0/libgssdp $out/include
-    cp -r ${libxml2}/include/libxml2/libxml $out/include
-    '';
+  postInstall = ''
+    ln -sv ${libsoup.dev}/include/libsoup-2*/libsoup $out/include
+    ln -sv ${libxml2.dev}/include/*/libxml $out/include
+    ln -sv ${gssdp}/include/*/libgssdp $out/include
+  '';
 
   meta = {
     homepage = http://www.gupnp.org/;

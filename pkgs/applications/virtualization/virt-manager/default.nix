@@ -1,61 +1,51 @@
-{ stdenv, fetchurl, pythonPackages, intltool, libxml2Python, curl, python
-, makeWrapper, virtinst, pyGtkGlade, pythonDBus, gnome_python, gtkvnc, vte
-, gtk3, gobjectIntrospection, libvirt-glib, gsettings_desktop_schemas, glib
-, avahi, dconf, spiceSupport ? true, spice_gtk, libosinfo
+{ stdenv, fetchurl, python2Packages, intltool, file
+, wrapGAppsHook, virtinst, gtkvnc, vte, avahi, dconf
+, gobjectIntrospection, libvirt-glib, system-libvirt
+, gsettings_desktop_schemas, glib, libosinfo, gnome3
+, spiceSupport ? true, spice_gtk ? null
 }:
 
 with stdenv.lib;
-with pythonPackages;
 
-buildPythonPackage rec {
+python2Packages.buildPythonApplication rec {
   name = "virt-manager-${version}";
-  version = "1.1.0";
+  version = "1.4.3";
   namePrefix = "";
 
   src = fetchurl {
     url = "http://virt-manager.org/download/sources/virt-manager/${name}.tar.gz";
-    sha256 = "0hbr1wf4byfvbqlbq3w6s71ckhn626i4rb497y4z2cm12p5hc2db";
+    sha256 = "093azs8p4p7y4nf5j25xpsvdxww7gky1g0hs8mkcvmpxl2wjd0jj";
   };
 
-  propagatedBuildInputs =
-    [ eventlet greenlet gflags netaddr sqlalchemy carrot routes
-      paste_deploy m2crypto ipy twisted sqlalchemy_migrate
-      distutils_extra simplejson readline glance cheetah lockfile httplib2
-      urlgrabber virtinst pyGtkGlade pythonDBus gnome_python pygobject3
-      libvirt libxml2Python ipaddr vte libosinfo
-    ] ++ optional spiceSupport spice_gtk;
+  nativeBuildInputs = [ wrapGAppsHook intltool file ];
 
   buildInputs =
-    [ mox
-      intltool
-      gtkvnc
-      gtk3
-      libvirt-glib
-      avahi
-      glib
-      gobjectIntrospection
-      gsettings_desktop_schemas
+    [ libvirt-glib vte virtinst dconf gtkvnc gnome3.defaultIconTheme avahi
+      gsettings_desktop_schemas libosinfo
+    ] ++ optional spiceSupport spice_gtk;
+
+  propagatedBuildInputs = with python2Packages;
+    [ eventlet greenlet gflags netaddr carrot routes PasteDeploy
+      m2crypto ipy twisted distutils_extra simplejson
+      cheetah lockfile httplib2 urlgrabber pyGtkGlade dbus-python
+      pygobject3 ipaddr mox libvirt libxml2 requests
     ];
 
-  configurePhase = ''
-    sed -i 's/from distutils.core/from setuptools/g' setup.py
-    sed -i 's/from distutils.command.install/from setuptools.command.install/g' setup.py
-    python setup.py configure --prefix=$out
+  patchPhase = ''
+    sed -i 's|/usr/share/libvirt/cpu_map.xml|${system-libvirt}/share/libvirt/cpu_map.xml|g' virtinst/capabilities.py
+    sed -i "/'install_egg_info'/d" setup.py
   '';
 
-  buildPhase = "true";
+  postConfigure = ''
+    ${python2Packages.python.interpreter} setup.py configure --prefix=$out
+  '';
 
   postInstall = ''
-    # GI_TYPELIB_PATH is needed at runtime for GObject stuff to work
-    for file in "$out"/bin/*; do
-        wrapProgram "$file" \
-            --prefix GI_TYPELIB_PATH : $GI_TYPELIB_PATH \
-            --prefix GIO_EXTRA_MODULES : "${dconf}/lib/gio/modules" \
-            --prefix GSETTINGS_SCHEMA_DIR : $out/share/glib-2.0/schemas \
-            --prefix XDG_DATA_DIRS : "$out/share:${gtk3}/share:$GSETTINGS_SCHEMAS_PATH:\$XDG_DATA_DIRS"
-    done
+    ${glib.dev}/bin/glib-compile-schemas "$out"/share/glib-2.0/schemas
+  '';
 
-    ${glib}/bin/glib-compile-schemas "$out"/share/glib-2.0/schemas
+  preFixup = ''
+    gappsWrapperArgs+=(--set PYTHONPATH "$PYTHONPATH")
   '';
 
   # Failed tests
@@ -70,6 +60,6 @@ buildPythonPackage rec {
       manages Xen and LXC (linux containers).
     '';
     license = licenses.gpl2;
-    maintainers = with maintainers; [qknight offline];
+    maintainers = with maintainers; [ qknight offline fpletz ];
   };
 }

@@ -1,39 +1,47 @@
-{ lib, goPackages, fetchurl, callPackage }:
+{ stdenv, buildGoPackage, fetchFromGitHub, openssl_1_0_2, pkgconfig, libpcap }:
 
-with goPackages;
+let
+  tools = [
+    "bsondump" "mongodump" "mongoexport" "mongofiles" "mongoimport"
+    "mongooplog" "mongorestore" "mongostat" "mongotop"
+  ];
+in
+
+with stdenv.lib;
 
 buildGoPackage rec {
-  version = "r3.1.2";
-  name = "mongodb-tools";
-  goPackagePath = "github.com/mongodb/mongo-tools";
+  name = "mongo-tools-${version}";
+  version = "3.5.13";
+  rev = "r${version}";
 
-  src = fetchurl {
-    name = "${name}.tar.gz";
-    url = "https://github.com/mongodb/mongo-tools/archive/${version}.tar.gz";
-    sha256 = "1dag8ar95jlfk6rm99y4p3dymcy2s2qnwd9jwqhw9fxr110mgf5s";
+  goPackagePath = "github.com/mongodb/mongo-tools";
+  subPackages = map (t: t + "/main") tools;
+
+  src = fetchFromGitHub {
+    inherit rev;
+    owner = "mongodb";
+    repo = "mongo-tools";
+    sha256 = "00klm4pyx5k39nn4pmfrpnkqxdhbzm7lprgwxszpirzrarh2g164";
   };
 
-  buildInputs = [ gopass go-flags crypto mgo openssl spacelog
-    oglematchers goconvey tomb ];
+  goDeps = ./deps.nix;
 
-  subPackages = [ "bsondump/main" "mongostat/main" "mongofiles/main"
-    "mongoexport/main" "mongoimport/main" "mongorestore/main"
-    "mongodump/main" "mongotop/main" "mongooplog/main" ];
+  nativeBuildInputs = [ pkgconfig ];
+  buildInputs = [ openssl_1_0_2 libpcap ];
 
+  # Mongodb incorrectly names all of their binaries main
+  # Let's work around this with our own installer
   buildPhase = ''
-    for i in bsondump mongostat mongofiles mongoexport mongoimport mongorestore mongodump mongotop mongooplog; do
-      echo Building $i
-      go build -o go/bin/$i go/src/${goPackagePath}/$i/main/$i.go
-    done
+    runHook preBuild
+    ${stdenv.lib.concatMapStrings (t: ''
+      go build -o "$bin/bin/${t}" -tags ssl -ldflags "-s -w" $goPackagePath/${t}/main
+    '') tools}
+    runHook postBuild
   '';
 
-  dontInstallSrc = true;
-
-  meta = with lib; {
-    description = "Tools for MongoDB";
+  meta = {
     homepage = https://github.com/mongodb/mongo-tools;
+    description = "Tools for the MongoDB";
     license = licenses.asl20;
-    maintainers = with maintainers; [ mschristiansen ];
-    platforms = platforms.linux;
   };
 }

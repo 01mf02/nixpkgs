@@ -1,27 +1,30 @@
-{ stdenv, fetchgit, which, procps, kbd }:
+{ stdenv, fetchgit, autoconf, automake, which, procps, kbd }:
 
 stdenv.mkDerivation rec {
   name = "logkeys-${version}";
-  version = "5ef6b0dcb9e3";
+  version = "2017-10-10";
 
   src = fetchgit {
-    url = "https://code.google.com/p/logkeys/";
-    rev = "5ef6b0dcb9e38e6137ad1579d624ec12107c56c3";
-    sha256 = "02p0l92l0fq069g31ks6xbqavzxa9njj9460vw2jsa7livcn2z9d";
+    url = https://github.com/kernc/logkeys;
+    rev = "5c368327a2cd818efaed4794633c260b90b87abf";
+    sha256 = "0akj7j775y9c0p53zq5v12jk3fy030fpdvn5m1x9w4rdj47vxdpg";
   };
 
-  buildInputs = [ which procps kbd ];
+  buildInputs = [ autoconf automake which procps kbd ];
 
   postPatch = ''
-    substituteInPlace src/Makefile.in --replace 'root' '$(id -u)'
-    substituteInPlace configure --replace '/dev/input' '/tmp'
+    substituteInPlace src/Makefile.am --replace 'root' '$(id -u)'
+    substituteInPlace configure.ac --replace '/dev/input' '/tmp'
+    sed -i '/chmod u+s/d' src/Makefile.am
  '';
+
+  preConfigure = "./autogen.sh";
 
   meta = with stdenv.lib; {
     description = "A GNU/Linux keylogger that works!";
     license = licenses.gpl3;
-    homepage = http://code.google.com/p/logkeys/;
-    maintainers = with maintainers; [offline];
-    platforms = with platforms; linux;
+    homepage = https://github.com/kernc/logkeys;
+    maintainers = with maintainers; [mikoim offline];
+    platforms = platforms.linux;
   };
 }

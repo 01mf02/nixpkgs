@@ -1,14 +1,16 @@
-{stdenv, fetchurl, tcl, tk, x11, makeWrapper}:
+{stdenv, fetchurl, tcl, tk, xlibsWrapper, makeWrapper}:
 
-let version = "3.0"; in
-stdenv.mkDerivation {
+stdenv.mkDerivation rec {
+  version = "3.0";
   name = "wordnet-${version}";
   src = fetchurl {
     url = "http://wordnetcode.princeton.edu/${version}/WordNet-${version}.tar.bz2";
     sha256 = "08pgjvd2vvmqk3h641x63nxp7wqimb9r30889mkyfh2agc62sjbc";
   };
 
-  buildInputs = [tcl tk x11 makeWrapper];
+  buildInputs = [tcl tk xlibsWrapper makeWrapper];
+
+  hardeningDisable = [ "format" ];
 
   patchPhase = ''
     sed "13i#define USE_INTERP_RESULT 1" -i src/stubs.c
@@ -40,6 +42,6 @@ stdenv.mkDerivation {
     homepage = http://wordnet.princeton.edu/;
 
     maintainers = [ ];
-    platforms = stdenv.lib.platforms.gnu;  # arbitrary choice
+    platforms = with stdenv.lib.platforms; linux ++ darwin;
   };
 }

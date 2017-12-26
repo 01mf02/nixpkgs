@@ -1,6 +1,6 @@
-{ callPackage, ... } @ args:
+args@{ callPackage, ... }:
 
-callPackage ./generic.nix (args // {
-  version = "1.0.2";
-  sha256 = "1ph4cb6nrk2hiy89j3kz1wj16ph0b9yixrf4f4935rnzhha8x31w";
-})
+callPackage (import ./generic.nix {
+  version = "1.1.5";
+  sha256 = "1ifpcqw5mj2dwk23lhc2vpb47mg3j573v5z4zp8dkczpz7wg5jxq";
+}) args

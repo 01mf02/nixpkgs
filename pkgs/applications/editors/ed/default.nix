@@ -1,30 +1,19 @@
-{ fetchurl, stdenv }:
+{ stdenv, fetchurl, lzip
+, buildPlatform, hostPlatform
+}:
 
 stdenv.mkDerivation rec {
-  name = "ed-1.10";
+  name = "ed-${version}";
+  version = "1.14.2";
 
   src = fetchurl {
-    # gnu only provides *.lz tarball, which is unfriendly for stdenv bootstrapping
-    #url = "mirror://gnu/ed/${name}.tar.gz";
-    url = "http://pkgs.fedoraproject.org/repo/extras/ed/${name}.tar.bz2"
-      + "/38204d4c690a17a989e802ba01b45e98/${name}.tar.bz2";
-    sha256 = "16qvshl8470f3znjfrrci3lzllqkzc6disk5kygzsg9hh4f6wysq";
+    url = "mirror://gnu/ed/${name}.tar.lz";
+    sha256 = "1nqhk3n1s1p77g2bjnj55acicsrlyb2yasqxqwpx0w0djfx64ygm";
   };
 
-  /* FIXME: Tests currently fail on Darwin:
+  nativeBuildInputs = [ lzip ];
 
-       building test scripts for ed-1.5...
-       testing ed-1.5...
-       *** Output e1.o of script e1.ed is incorrect ***
-       *** Output r3.o of script r3.ed is incorrect ***
-       make: *** [check] Error 127
-
-    */
-  doCheck = !stdenv.isDarwin;
-
-  crossAttrs = {
-    compileFlags = [ "CC=${stdenv.cross.config}-gcc" ];
-  };
+  doCheck = hostPlatform == buildPlatform;
 
   meta = {
     description = "An implementation of the standard Unix editor";
@@ -45,5 +34,6 @@ stdenv.mkDerivation rec {
     homepage = http://www.gnu.org/software/ed/;
 
     maintainers = [ ];
+    platforms = stdenv.lib.platforms.unix;
   };
 }

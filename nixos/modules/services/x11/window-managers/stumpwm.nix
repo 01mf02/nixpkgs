@@ -8,22 +8,16 @@ in
 
 {
   options = {
-    services.xserver.windowManager.stumpwm = {
-      enable = mkOption {
-        type = types.bool;
-        default = false;
-        example = true;
-        description = "Enable the stumpwm tiling window manager.";
-      };
-    };
+    services.xserver.windowManager.stumpwm.enable = mkEnableOption "stumpwm";
   };
 
   config = mkIf cfg.enable {
     services.xserver.windowManager.session = singleton {
       name = "stumpwm";
-      start = "
-        ${pkgs.stumpwm}/bin/stumpwm
-      ";
+      start = ''
+        ${pkgs.stumpwm}/bin/stumpwm &
+        waitPID=$!
+      '';
     };
     environment.systemPackages = [ pkgs.stumpwm ];
   };

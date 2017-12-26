@@ -1,63 +1,13 @@
-{ lib, pythonPackages, fetchgit, libxslt, docbook5_xsl, openssh }:
+{ callPackage, fetchurl }:
 
-let
+# To upgrade pick the hydra job of the nixops revision that you want to upgrade
+# to from: https://hydra.nixos.org/job/nixops/master/tarball
+# Then copy the URL to the tarball.
 
-  # Use this until the patches are upstreamed.
-  # Warning: will be rebased at will
-  libcloud = lib.overrideDerivation pythonPackages.libcloud ( args: {
-    src = fetchgit {
-      url = https://github.com/Phreedom/libcloud.git;
-      rev = "784427f549829a00d551e3468184a708420ad1ec";
-      sha256 = "fd0e092b39fa1fde6a8847e6dc69855d30c2dad9e95ee0373297658ff53edf8a";
-    };
-
-    preConfigure = "cp libcloud/test/secrets.py-dist libcloud/test/secrets.py";
-  });
-
-in
-
-pythonPackages.buildPythonPackage rec {
-  name = "nixops-1.3pre1486_7489764";
-  namePrefix = "";
-
-  src = fetchgit {
-    url = https://github.com/NixOS/nixops;
-    rev = "5c7663dfe1e2af9c0396c5c86d995452ef2efc8a";
-    sha256 = "01n2ykszrnqr3kqqdg1n2l8wm38yhri7r3d7b0abklsslz9dlvmy";
+callPackage ./generic.nix (rec {
+  version = "1.6pre2276_9203440";
+  src = fetchurl {
+    url = "https://hydra.nixos.org/build/64518294/download/2/nixops-${version}.tar.bz2";
+    sha256 = "1cl0869nl67fr5xk0jl9cvqbmma7d4vz5xbg56jpl7casrr3i51x";
   };
-
-  buildInputs = [ pythonPackages.nose pythonPackages.coverage ];
-
-  propagatedBuildInputs =
-    [ pythonPackages.prettytable
-      pythonPackages.boto
-      pythonPackages.hetzner
-      libcloud
-      pythonPackages.sqlite3
-    ];
-
-  doCheck = true;
-
-  postInstall =
-    ''
-      # Backward compatibility symlink.
-      ln -s nixops $out/bin/charon
-
-      make -C doc/manual install \
-        docdir=$out/share/doc/nixops mandir=$out/share/man
-
-      mkdir -p $out/share/nix/nixops
-      cp -av nix/* $out/share/nix/nixops
-
-      # Add openssh to nixops' PATH. On some platforms, e.g. CentOS and RHEL
-      # the version of openssh is causing errors when have big networks (40+)
-      wrapProgram $out/bin/nixops --prefix PATH : "${openssh}/bin"
-    ''; # */
-
-  meta = {
-    homepage = https://github.com/NixOS/nixops;
-    description = "NixOS cloud provisioning and deployment tool";
-    maintainers = [ lib.maintainers.tv ];
-    platforms = lib.platforms.unix;
-  };
-}
+})

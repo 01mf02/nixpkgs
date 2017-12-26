@@ -1,6 +1,6 @@
-{ system, minimal ? false }:
+{ system, minimal ? false, config ? {} }:
 
-let pkgs = import ./nixpkgs.nix { config = {}; inherit system; }; in
+let pkgs = import ../.. { inherit system config; }; in
 
 with pkgs.lib;
 with import ../lib/qemu-flags.nix;
@@ -8,6 +8,8 @@ with import ../lib/qemu-flags.nix;
 rec {
 
   inherit pkgs;
+
+  qemu = pkgs.qemu_test;
 
 
   # Build a virtual network from an attribute set `{ machine1 =
@@ -27,6 +29,7 @@ rec {
         [ ../modules/virtualisation/qemu-vm.nix
           ../modules/testing/test-instrumentation.nix # !!! should only get added for automated test runs
           { key = "no-manual"; services.nixosManual.enable = false; }
+          { key = "qemu"; system.build.qemu = qemu; }
         ] ++ optional minimal ../modules/testing/minimal-kernel.nix;
       extraArgs = { inherit nodes; };
     };
@@ -41,22 +44,22 @@ rec {
 
       machines = attrNames nodes;
 
-      machinesNumbered = zipTwoLists machines (range 1 254);
+      machinesNumbered = zipLists machines (range 1 254);
 
-      nodes_ = flip map machinesNumbered (m: nameValuePair m.first
+      nodes_ = flip map machinesNumbered (m: nameValuePair m.fst
         [ ( { config, pkgs, nodes, ... }:
             let
-              interfacesNumbered = zipTwoLists config.virtualisation.vlans (range 1 255);
-              interfaces = flip map interfacesNumbered ({ first, second }:
-                nameValuePair "eth${toString second}" { ip4 =
-                  [ { address = "192.168.${toString first}.${toString m.second}";
+              interfacesNumbered = zipLists config.virtualisation.vlans (range 1 255);
+              interfaces = flip map interfacesNumbered ({ fst, snd }:
+                nameValuePair "eth${toString snd}" { ip4 =
+                  [ { address = "192.168.${toString fst}.${toString m.snd}";
                       prefixLength = 24;
                   } ];
                 });
             in
             { key = "ip-address";
               config =
-                { networking.hostName = m.first;
+                { networking.hostName = m.fst;
 
                   networking.interfaces = listToAttrs interfaces;
 
@@ -76,11 +79,11 @@ rec {
 
                   virtualisation.qemu.options =
                     flip map interfacesNumbered
-                      ({ first, second }: qemuNICFlags second first m.second);
+                      ({ fst, snd }: qemuNICFlags snd fst m.snd);
                 };
             }
           )
-          (getAttr m.first nodes)
+          (getAttr m.fst nodes)
         ] );
 
     in listToAttrs nodes_;

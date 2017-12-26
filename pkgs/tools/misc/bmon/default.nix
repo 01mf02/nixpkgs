@@ -1,23 +1,20 @@
-{ stdenv, fetchFromGitHub, autoconf, automake, pkgconfig, ncurses, confuse
+{ stdenv, fetchFromGitHub, autoreconfHook, pkgconfig, ncurses, confuse
 , libnl }:
 
 stdenv.mkDerivation rec {
   name = "bmon-${version}";
-  version = "3.6";
+  version = "4.0";
 
   src = fetchFromGitHub {
     owner = "tgraf";
     repo = "bmon";
     rev = "v${version}";
-    sha256 = "16qwazays2j448kmfckv6wvh4rhmhc9q4vp1s75hm9z02cmhvk8q";
+    sha256 = "1ilba872c09mnlvylslv4hqv6c9cz36l76q74rr99jvis1dg69gf";
   };
 
-  # https://github.com/tgraf/bmon/pull/24#issuecomment-98068887
-  postPatch = "sed '1i#include <net/if.h>' -i src/in_netlink.c";
+  nativeBuildInputs = [ autoreconfHook pkgconfig ];
 
-  buildInputs = [ autoconf automake pkgconfig ncurses confuse libnl ];
-
-  preConfigure = "sh ./autogen.sh";
+  buildInputs = [ ncurses confuse libnl ];
 
   meta = with stdenv.lib; {
     description = "Network bandwidth monitor";

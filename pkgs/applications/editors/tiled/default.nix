@@ -1,24 +1,32 @@
-{ stdenv, fetchurl, qt }:
+{ stdenv, fetchFromGitHub, pkgconfig, qmake
+, python, qtbase, qttools, zlib }:
 
-stdenv.mkDerivation rec {
-  name = "tiled-0.11.0";
+let
+#  qtEnv = with qt5; env "qt-${qtbase.version}" [ qtbase qttools ];
+in stdenv.mkDerivation rec {
+  name = "tiled-${version}";
+  version = "1.0.3";
 
-  src = fetchurl {
-    url = "https://github.com/bjorn/tiled/archive/v0.11.0.tar.gz";
-    sha256 = "03a15vbzjfwc8dpifbjvd0gnr208mzmdkgs2nlc8zq6z0a4h4jqd";
+  src = fetchFromGitHub {
+    owner = "bjorn";
+    repo = "tiled";
+    rev = "v${version}";
+    sha256 = "1j8307h7xkxqwr8rpr9fn1svm5h10k61w6zxr4sgph1hiv8x33aa";
   };
 
-  buildInputs = [ qt ];
+  nativeBuildInputs = [ pkgconfig qmake ];
+  buildInputs = [ python qtbase qttools ];
 
-  preConfigure = "qmake -r PREFIX=$out";
+  enableParallelBuilding = true;
 
-  meta = {
-    description = "A free, easy to use and flexible tile map editor";
-    homepage = "http://www.mapeditor.org/";
-    # libtiled and tmxviewer is licensed under 2-calause BSD license.
-    # The rest is GPL2 or later.
-    license = stdenv.lib.licenses.gpl2Plus;
-    platforms = stdenv.lib.platforms.linux;
-    maintainers = with stdenv.lib.maintainers; [ iyzsong ];
+  meta = with stdenv.lib; {
+    description = "Free, easy to use and flexible tile map editor";
+    homepage = http://www.mapeditor.org/;
+    license = with licenses; [
+      bsd2	# libtiled and tmxviewer
+      gpl2Plus	# all the rest
+    ];
+    platforms = platforms.linux;
+    maintainers = [ maintainers.nckx ];
   };
 }

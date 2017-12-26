@@ -1,19 +1,23 @@
-{ stdenv, fetchurl, cmake, makeWrapper, pkgconfig, vala, gtk3, libgee, poppler
-, libpthreadstubs, gstreamer, gst-plugins-base, librsvg }:
+{ stdenv, fetchFromGitHub, cmake, makeWrapper, pkgconfig, vala, gtk3, libgee
+, poppler, libpthreadstubs, gstreamer, gst-plugins-base, librsvg, pcre }:
 
 stdenv.mkDerivation rec {
   name = "${product}-${version}";
   product = "pdfpc";
-  version = "4.0.0";
+  version = "4.0.7";
 
-  src = fetchurl {
-    url = "https://github.com/pdfpc/pdfpc/releases/download/v${version}/${product}-v${version}.tar.gz";
-    sha256 = "0qksci11pgvabfdnynkpj2av0iww8m9m41a0vwsqgvg3yiacb4f0";
+  src = fetchFromGitHub {
+    repo = "pdfpc";
+    owner = "pdfpc";
+    rev = "v${version}";
+    sha256 = "00qfmmk8h762p53z46g976z7j4fbxyi16w5axzsv1ymvdq95ds8c";
   };
 
-  nativeBuildInputs = [ cmake pkgconfig ];
-  buildInputs = [ gstreamer gst-plugins-base vala gtk3 libgee poppler
-                  libpthreadstubs makeWrapper librsvg ];
+  nativeBuildInputs = [ cmake pkgconfig vala ];
+  buildInputs = [ gstreamer gst-plugins-base gtk3 libgee poppler
+    libpthreadstubs makeWrapper librsvg pcre ];
+
+  cmakeFlags = stdenv.lib.optionalString stdenv.isDarwin "-DMOVIES=OFF";
 
   postInstall = ''
     wrapProgram $out/bin/pdfpc \
@@ -25,7 +29,7 @@ stdenv.mkDerivation rec {
     homepage = https://pdfpc.github.io/;
     license = licenses.gpl2Plus;
     maintainers = with maintainers; [ pSub ];
-    platforms = platforms.linux;
+    platforms = platforms.unix;
   };
 
 }

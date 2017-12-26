@@ -1,17 +1,29 @@
-{ stdenv, fetchurl, spidermonkey_24, unzip, curl, pcre, readline, openssl }:
+{ stdenv, fetchurl, spidermonkey, unzip, curl, pcre, readline, openssl, perl, html-tidy }:
+
 stdenv.mkDerivation rec {
-  name = "edbrowse-3.5.2";
-  buildInputs = [ unzip curl pcre readline openssl spidermonkey_24 ];
-  preConfigure = ''
-    export NIX_CFLAGS_COMPILE="$NIX_CFLAGS_COMPILE -I${spidermonkey_24}/include/mozjs-24"
-    '';
-  installPhase = "installBin src/edbrowse";
+  name = "edbrowse-${version}";
+  version = "3.6.1";
+
+  nativeBuildInputs = [ unzip ];
+  buildInputs = [ curl pcre readline openssl spidermonkey perl html-tidy ];
+
+  patchPhase = ''
+    substituteInPlace src/ebjs.c --replace \"edbrowse-js\" \"$out/bin/edbrowse-js\"
+    for i in ./tools/*.pl
+    do
+      substituteInPlace $i --replace "/usr/bin/perl" "${perl}/bin/perl"
+    done
+  '';
+
+  NIX_CFLAGS_COMPILE = "-I${spidermonkey}/include/mozjs-31";
+  makeFlags = "-C src prefix=$(out)";
+
   src = fetchurl {
-    url = "http://the-brannons.com/edbrowse/${name}.zip";
-    sha256 = "5f1ac927d126b8c8fd411231cffa9eba5405013e64994e55e1864b2f85d52714";
+    url = "http://edbrowse.org/${name}.zip";
+    sha256 = "1grkn09r31nmvcnm76jkd8aclmd9n5141mpqvb86wndp9pa7gz7q";
   };
-  meta = {
-    description = "Edbrowse, a Command Line Editor Browser";
+  meta = with stdenv.lib; {
+    description = "Command Line Editor Browser";
     longDescription = ''
       Edbrowse is a combination editor, browser, and mail client that is 100% text based.
       The interface is similar to /bin/ed, though there are many more features, such as editing multiple files simultaneously, and rendering html.
@@ -19,8 +31,10 @@ stdenv.mkDerivation rec {
       A batch job, or cron job, can access web pages on the internet, submit forms, and send email, with no human intervention whatsoever.
       edbrowse can also tap into databases through odbc. It was primarily written by Karl Dahlke.
       '';
-    license = stdenv.lib.licenses.gpl1Plus;
-    homepage = http://the-brannons.com/edbrowse/;
-    maintainers = [ stdenv.lib.maintainers.schmitthenner ];
+    license = licenses.gpl1Plus;
+    homepage = http://edbrowse.org/;
+    maintainers = [ maintainers.schmitthenner maintainers.vrthra ];
+    platforms = platforms.linux;
+    broken = true;  # no compatible spidermonkey
   };
 }

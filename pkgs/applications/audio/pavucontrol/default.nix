@@ -30,11 +30,11 @@ stdenv.mkDerivation rec {
       easily control the volume of all clients, sinks, etc.
     '';
 
-    homepage = http://freedesktop.org/software/pulseaudio/pavucontrol/ ;
+    homepage = http://freedesktop.org/software/pulseaudio/pavucontrol/;
 
     license = stdenv.lib.licenses.gpl2Plus;
 
-    maintainers = [ maintainers.abbradar ];
+    maintainers = with maintainers; [ abbradar jgeerds ];
     platforms = platforms.linux;
   };
 }

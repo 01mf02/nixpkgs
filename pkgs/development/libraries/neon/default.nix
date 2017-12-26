@@ -14,16 +14,18 @@ let
 in
 
 stdenv.mkDerivation rec {
-  name = "neon-0.29.6";
+  version = "0.30.2";
+  name = "neon-${version}";
 
   src = fetchurl {
     url = "http://www.webdav.org/neon/${name}.tar.gz";
-    sha256 = "0hzbjqdx1z8zw0vmbknf159wjsxbcq8ii0wgwkqhxj3dimr0nr4w";
+    sha256 = "1jpvczcx658vimqm7c8my2q41fnmjaf1j03g7bsli6rjxk6xh2yv";
   };
 
   patches = optionals stdenv.isDarwin [ ./0.29.6-darwin-fix-configure.patch ];
 
-  buildInputs = [libxml2 pkgconfig openssl]
+  nativeBuildInputs = [ pkgconfig ];
+  buildInputs = [libxml2 openssl]
     ++ stdenv.lib.optional compressionSupport zlib;
 
   configureFlags = ''
@@ -39,5 +41,6 @@ stdenv.mkDerivation rec {
   meta = {
     description = "An HTTP and WebDAV client library";
     homepage = http://www.webdav.org/neon/;
+    platforms = stdenv.lib.platforms.unix;
   };
 }

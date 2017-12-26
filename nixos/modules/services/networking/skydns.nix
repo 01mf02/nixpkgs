@@ -7,11 +7,11 @@ let
 
 in {
   options.services.skydns = {
-    enable = mkEnableOption "Whether to enable skydns service.";
+    enable = mkEnableOption "skydns service";
 
     etcd = {
       machines = mkOption {
-        default = [ "http://localhost:4001" ];
+        default = [ "http://127.0.0.1:2379" ];
         type = types.listOf types.str;
         description = "Skydns list of etcd endpoints to connect to.";
       };
@@ -55,7 +55,8 @@ in {
     };
 
     package = mkOption {
-      default = pkgs.goPackages.skydns;
+      default = pkgs.skydns;
+      defaultText = "pkgs.skydns";
       type = types.package;
       description = "Skydns package to use.";
     };
@@ -79,10 +80,10 @@ in {
         ETCD_CACERT = cfg.etcd.caCert;
         SKYDNS_ADDR = cfg.address;
         SKYDNS_DOMAIN = cfg.domain;
-        SKYDNS_NAMESERVER = concatStringsSep "," cfg.nameservers;
+        SKYDNS_NAMESERVERS = concatStringsSep "," cfg.nameservers;
       };
       serviceConfig = {
-        ExecStart = "${cfg.package}/bin/skydns";
+        ExecStart = "${cfg.package.bin}/bin/skydns";
       };
     };
 

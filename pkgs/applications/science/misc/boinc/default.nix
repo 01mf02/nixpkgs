@@ -1,24 +1,30 @@
-{ fetchgit, stdenv, autoconf, automake, pkgconfig, m4, curl,
+{ fetchFromGitHub, stdenv, autoconf, automake, pkgconfig, m4, curl,
 mesa, libXmu, libXi, freeglut, libjpeg, libtool, wxGTK, xcbutil,
-sqlite, gtk, patchelf, libXScrnSaver, libnotify, libX11, libxcb }:
+sqlite, gtk2, patchelf, libXScrnSaver, libnotify, libX11, libxcb }:
+
+let
+  majorVersion = "7.8";
+  minorVersion = "0";
+in
 
 stdenv.mkDerivation rec {
-  name = "boinc-7.4.14";
+  version = "${majorVersion}.${minorVersion}";
+  name = "boinc-${version}";
 
-  src = fetchgit {
-    url = "git://boinc.berkeley.edu/boinc-v2.git";
-    rev = "fb31ab18f94f3b5141bea03e8537d76c606cd276";
-    sha256 = "1465zl8l87fm1ps5f2may6mcc3pp40mpd6wphpxnwwk1lmv48x96";
+  src = fetchFromGitHub {
+    name = "${name}-src";
+    owner = "BOINC";
+    repo = "boinc";
+    rev = "client_release/${majorVersion}/${version}";
+    sha256 = "08kv3fai79cc28vmyi0y4xcdd5h9xgkn9yyc6y36c0mglaxsn4pr";
   };
 
-  buildInputs = [ libtool automake autoconf m4 pkgconfig curl mesa libXmu libXi
-    freeglut libjpeg wxGTK sqlite gtk libXScrnSaver libnotify patchelf libX11 
-    libxcb xcbutil
-  ];
+  nativeBuildInputs = [ libtool automake autoconf m4 pkgconfig ];
 
-  postConfigure = ''
-    sed -i -e s,/etc,$out/etc, client/scripts/Makefile
-  '';
+  buildInputs = [
+    curl mesa libXmu libXi freeglut libjpeg wxGTK sqlite gtk2 libXScrnSaver
+    libnotify patchelf libX11 libxcb xcbutil
+  ];
 
   NIX_LDFLAGS = "-lX11";
 
@@ -33,11 +39,8 @@ stdenv.mkDerivation rec {
 
   meta = {
     description = "Free software for distributed and grid computing";
-
     homepage = http://boinc.berkeley.edu/;
-
     license = stdenv.lib.licenses.lgpl2Plus;
-
     platforms = stdenv.lib.platforms.linux;  # arbitrary choice
   };
 }

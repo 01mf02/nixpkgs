@@ -1,29 +1,16 @@
-{ lib, goPackages, fetchFromGitHub }:
-
-with goPackages;
+{ stdenv, lib, buildGoPackage, fetchgit, fetchhg, fetchbzr, fetchsvn }:
 
 buildGoPackage rec {
-  rev = "7534f4943d94a318edde90212439e538ed54cdde";
-  version = "git-2015-04-26";
   name = "goimports-${version}";
+  version = "20160519-${stdenv.lib.strings.substring 0 7 rev}";
+  rev = "9ae4729fba20b3533d829a9c6ba8195b068f2abc";
+
   goPackagePath = "golang.org/x/tools";
-
-  src = fetchFromGitHub {
-    inherit rev;
-    owner = "golang";
-    repo = "tools";
-    sha256 = "12ybykrn92l7awav0wkx9yqpc5z0pdwwi29qs9mdr2xspx61rb50";
-  };
-
   subPackages = [ "cmd/goimports" ];
 
-  dontInstallSrc = true;
-
-  meta = with lib; {
-    description = "Import management tool for go";
-    homepage = https://godoc.org/golang.org/x/tools/cmd/goimports;
-    license = licenses.bsd3;
-    maintainers = with maintainers; [ jzellner ];
-    platforms = platforms.unix;
+  src = fetchgit {
+    inherit rev;
+    url = "https://go.googlesource.com/tools";
+    sha256 = "1j51aaskfqc953p5s9naqimr04hzfijm4yczdsiway1xnnvvpfr1";
   };
 }

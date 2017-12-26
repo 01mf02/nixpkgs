@@ -12,6 +12,8 @@ stdenv.mkDerivation rec {
 
   doCheck = true;
 
+  NIX_CFLAGS_COMPILE = [ "-std=c99" ];
+
   meta = {
     homepage = http://www.gnu.org/software/rcs/;
     description = "Revision control system";
@@ -24,7 +26,7 @@ stdenv.mkDerivation rec {
       '';
 
     license = stdenv.lib.licenses.gpl3Plus;
-    maintainers = with stdenv.lib.maintainers; [ eelco simons ];
-    platforms = stdenv.lib.platforms.all;
+    maintainers = with stdenv.lib.maintainers; [ eelco ];
+    platforms = stdenv.lib.platforms.linux;
   };
 }

@@ -1,15 +1,16 @@
-{ stdenv, fetchsvn, python, llvm, clang }:
+{ stdenv, fetchFromGitHub, python2, llvm_4, clang }:
 
 stdenv.mkDerivation {
-  name = "libclc-2015-03-27";
+  name = "libclc-2017-02-25";
 
-  src = fetchsvn {
-    url = "http://llvm.org/svn/llvm-project/libclc/trunk";
-    rev = "233456";
-    sha256 = "0g56kgffc1qr9rzhcjr4w8kljcicg0q828s9b4bmfzjvywd7hhr0";
+  src = fetchFromGitHub {
+    owner = "llvm-mirror";
+    repo = "libclc";
+    rev = "17648cd846390e294feafef21c32c7106eac1e24";
+    sha256 = "1c20jyh3sdwd9r37zs4vvppmsx8vhf2xbx0cxsrc27bhx5245p0s";
   };
 
-  buildInputs = [ python llvm clang ];
+  buildInputs = [ python2 llvm_4 clang ];
 
   postPatch = ''
     sed -i 's,llvm_clang =.*,llvm_clang = "${clang}/bin/clang",' configure.py
@@ -17,12 +18,12 @@ stdenv.mkDerivation {
   '';
 
   configurePhase = ''
-    python2 ./configure.py --prefix=$out
+    ${python2.interpreter} ./configure.py --prefix=$out
   '';
 
   meta = with stdenv.lib; {
     homepage = http://libclc.llvm.org/;
-    description = "implementation of the library requirements of the OpenCL C programming language";
+    description = "Implementation of the library requirements of the OpenCL C programming language";
     license = licenses.mit;
     platforms = platforms.all;
     maintainers = with maintainers; [ wkennington ];

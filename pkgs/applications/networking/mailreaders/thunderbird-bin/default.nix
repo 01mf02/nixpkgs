@@ -1,4 +1,4 @@
-{ stdenv, fetchurl, config
+{ stdenv, fetchurl, config, makeWrapper
 , gconf
 , alsaLib
 , at_spi2_atk
@@ -13,29 +13,40 @@
 , gdk_pixbuf
 , glib
 , glibc
-, gst_plugins_base
+, gst-plugins-base
 , gstreamer
-, gtk
+, gtk2
+, gtk3
 , kerberos
 , libX11
 , libXScrnSaver
+, libXcomposite
+, libXdamage
 , libXext
+, libXfixes
 , libXinerama
 , libXrender
 , libXt
-, libcanberra
+, libcanberra_gtk2
 , libgnome
 , libgnomeui
+, defaultIconTheme
 , mesa
 , nspr
 , nss
 , pango
+, writeScript
+, xidel
+, coreutils
+, gnused
+, gnugrep
+, gnupg
 }:
 
 assert stdenv.isLinux;
 
 # imports `version` and `sources`
-with (import ./sources.nix);
+with (import ./release_sources.nix);
 
 let
   arch = if stdenv.system == "i686-linux"
@@ -54,14 +65,15 @@ let
 
   source = stdenv.lib.findFirst (sourceMatches systemLocale) defaultSource sources;
 
+  name = "thunderbird-bin-${version}";
 in
 
 stdenv.mkDerivation {
-  name = "thunderbird-bin-${version}";
+  inherit name;
 
   src = fetchurl {
     url = "http://download-installer.cdn.mozilla.net/pub/thunderbird/releases/${version}/${source.arch}/${source.locale}/thunderbird-${version}.tar.bz2";
-    inherit (source) sha1;
+    inherit (source) sha512;
   };
 
   phases = "unpackPhase installPhase";
@@ -82,26 +94,34 @@ stdenv.mkDerivation {
       gdk_pixbuf
       glib
       glibc
-      gst_plugins_base
+      gst-plugins-base
       gstreamer
-      gtk
+      gtk2
+      gtk3
       kerberos
       libX11
       libXScrnSaver
+      libXcomposite
+      libXdamage
       libXext
+      libXfixes
       libXinerama
       libXrender
       libXt
-      libcanberra
+      libcanberra_gtk2
       libgnome
       libgnomeui
       mesa
       nspr
       nss
       pango
-    ] + ":" + stdenv.lib.makeSearchPath "lib64" [
+    ] + ":" + stdenv.lib.makeSearchPathOutput "lib" "lib64" [
       stdenv.cc.cc
     ];
+
+  buildInputs = [ gtk3 defaultIconTheme ];
+
+  nativeBuildInputs = [ makeWrapper ];
 
   installPhase =
     ''
@@ -112,25 +132,15 @@ stdenv.mkDerivation {
       ln -s "$prefix/usr/lib/thunderbird-bin-${version}/thunderbird" "$out/bin/"
 
       for executable in \
-        thunderbird mozilla-xremote-client thunderbird-bin plugin-container \
-        updater
+        thunderbird crashreporter thunderbird-bin plugin-container updater
       do
         patchelf --interpreter "$(cat $NIX_CC/nix-support/dynamic-linker)" \
           "$out/usr/lib/thunderbird-bin-${version}/$executable"
       done
 
-      for executable in \
-        thunderbird mozilla-xremote-client thunderbird-bin plugin-container \
-        updater \
-        components/libdbusservice.so components/libmozgnome.so \
-        libnssdbm3.so libsmime3.so libxul.so libprldap60.so libnss3.so \
-        libplc4.so libfreebl3.so libmozsqlite3.so libmozalloc.so libnspr4.so \
-        libssl3.so libldif60.so libsoftokn3.so libldap60.so libnssutil3.so \
-        libnssckbi.so libplds4.so
-      do
+      find . -executable -type f -exec \
         patchelf --set-rpath "$libPath" \
-          "$out/usr/lib/thunderbird-bin-${version}/$executable"
-      done
+          "$out/usr/lib/thunderbird-bin-${version}/{}" \;
 
       # Create a desktop item.
       mkdir -p $out/share/applications
@@ -138,13 +148,25 @@ stdenv.mkDerivation {
       [Desktop Entry]
       Type=Application
       Exec=$out/bin/thunderbird
-      Icon=$out/lib/thunderbird-bin-${version}/chrome/icons/default/default256.png
+      Icon=$out/usr/lib/thunderbird-bin-${version}/chrome/icons/default/default256.png
       Name=Thunderbird
       GenericName=Mail Reader
       Categories=Application;Network;
       EOF
+
+      wrapProgram "$out/bin/thunderbird" \
+        --argv0 "$out/bin/.thunderbird-wrapped" \
+        --prefix XDG_DATA_DIRS : "$GSETTINGS_SCHEMAS_PATH:" \
+        --suffix XDG_DATA_DIRS : "$XDG_ICON_DIRS"
     '';
 
+  passthru.updateScript = import ./../../browsers/firefox-bin/update.nix {
+    inherit name writeScript xidel coreutils gnused gnugrep curl gnupg;
+    baseName = "thunderbird";
+    channel = "release";
+    basePath = "pkgs/applications/networking/mailreaders/thunderbird-bin";
+    baseUrl = "http://archive.mozilla.org/pub/thunderbird/releases/";
+  };
   meta = with stdenv.lib; {
     description = "Mozilla Thunderbird, a full-featured email client (binary package)";
     homepage = http://www.mozilla.org/thunderbird/;

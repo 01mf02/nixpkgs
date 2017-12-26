@@ -1,60 +1,102 @@
-{ stdenv, fetchurl, pkgconfig, libxml2, gnutls, devicemapper, perl, python
-, iproute, iptables, readline, lvm2, utillinux, udev, libpciaccess, gettext
-, libtasn1, ebtables, libgcrypt, yajl, makeWrapper, pmutils, libcap_ng
-, dnsmasq, libnl, libpcap, libxslt, xhtml1
-, pythonPackages, perlPackages
+{ stdenv, fetchurl, fetchpatch
+, pkgconfig, makeWrapper
+, coreutils, libxml2, gnutls, devicemapper, perl, python2, attr
+, iproute, iptables, readline, lvm2, utillinux, systemd, libpciaccess, gettext
+, libtasn1, ebtables, libgcrypt, yajl, pmutils, libcap_ng, libapparmor
+, dnsmasq, libnl, libpcap, libxslt, xhtml1, numad, numactl, perlPackages
+, curl, libiconv, gmp, xen, zfs, parted
 }:
 
-let version = "1.2.12"; in
+with stdenv.lib;
 
-assert version == pythonPackages.libvirt.version;
-
+# if you update, also bump <nixpkgs/pkgs/development/python-modules/libvirt/default.nix> or it will break
 stdenv.mkDerivation rec {
   name = "libvirt-${version}";
+  version = "3.10.0";
 
   src = fetchurl {
-    url = "http://libvirt.org/sources/${name}.tar.gz";
-    sha256 = "0sp6xm6iyg5wfjgxiba4rpl527429r22lh241dzxjq25fxzj5xgg";
+    url = "http://libvirt.org/sources/${name}.tar.xz";
+    sha256 = "03kb37iv3dvvdlslznlc0njvjpmq082lczmsslz5p4fcwb50kwfz";
   };
 
+  patches = [ ./build-on-bsd.patch ];
+
+  nativeBuildInputs = [ makeWrapper pkgconfig ];
   buildInputs = [
-    pkgconfig libxml2 gnutls devicemapper perl python readline lvm2
-    utillinux udev libpciaccess gettext libtasn1 libgcrypt yajl makeWrapper
-    libcap_ng libnl libxslt xhtml1 perlPackages.XMLXPath
+    libxml2 gnutls perl python2 readline gettext libtasn1 libgcrypt yajl
+    libxslt xhtml1 perlPackages.XMLXPath curl libpcap
+  ] ++ optionals stdenv.isLinux [
+    libpciaccess devicemapper lvm2 utillinux systemd libnl numad zfs
+    libapparmor libcap_ng numactl attr parted
+  ] ++ optionals (stdenv.isLinux && stdenv.isx86_64) [
+    xen
+  ] ++ optionals stdenv.isDarwin [
+    libiconv gmp
   ];
 
-  preConfigure = ''
-    PATH=${iproute}/sbin:${iptables}/sbin:${ebtables}/sbin:${lvm2}/sbin:${udev}/sbin:${dnsmasq}/bin:$PATH
+  preConfigure = optionalString stdenv.isLinux ''
+    PATH=${stdenv.lib.makeBinPath [ iproute iptables ebtables lvm2 systemd ]}:$PATH
+    substituteInPlace configure \
+      --replace 'as_dummy="/bin:/usr/bin:/usr/sbin"' 'as_dummy="${numad}/bin"'
+
+    # the path to qemu-kvm will be stored in VM's .xml and .save files
+    # do not use "''${qemu_kvm}/bin/qemu-kvm" to avoid bound VMs to particular qemu derivations
+    substituteInPlace src/lxc/lxc_conf.c \
+      --replace 'lxc_path,' '"/run/libvirt/nix-emulators/libvirt_lxc",'
+  '' + ''
+    PATH=${dnsmasq}/bin:$PATH
     patchShebangs . # fixes /usr/bin/python references
   '';
 
   configureFlags = [
     "--localstatedir=/var"
-    "--sysconfdir=/etc"
-    "--with-init-script=redhat"
+    "--sysconfdir=/var/lib"
+    "--with-libpcap"
+    "--with-vmware"
+    "--with-vbox"
+    "--with-test"
+    "--with-esx"
+    "--with-remote"
+  ] ++ optionals stdenv.isLinux [
+    "--with-attr"
+    "--with-apparmor"
+    "--with-secdriver-apparmor"
+    "--with-numad"
     "--with-macvtap"
     "--with-virtualport"
-    "--with-libpcap"
+    "--with-init-script=systemd+redhat"
+    "--with-storage-disk"
+  ] ++ optionals (stdenv.isLinux && zfs != null) [
+    "--with-storage-zfs"
+  ] ++ optionals stdenv.isDarwin [
+    "--with-init-script=none"
   ];
 
   installFlags = [
     "localstatedir=$(TMPDIR)/var"
-    "sysconfdir=$(out)/etc"
+    "sysconfdir=$(out)/var/lib"
   ];
 
   postInstall = ''
     sed -i 's/ON_SHUTDOWN=suspend/ON_SHUTDOWN=''${ON_SHUTDOWN:-suspend}/' $out/libexec/libvirt-guests.sh
     substituteInPlace $out/libexec/libvirt-guests.sh \
-      --replace "$out/bin" "${gettext}/bin"
+      --replace "$out/bin" "${gettext}/bin" \
+      --replace "lock/subsys" "lock"
+    sed -e "/gettext\.sh/a \\\n# Added in nixpkgs:\ngettext() { \"${gettext}/bin/gettext\" \"\$@\"; }" \
+        -i "$out/libexec/libvirt-guests.sh"
+
+  '' + optionalString stdenv.isLinux ''
+    substituteInPlace $out/lib/systemd/system/libvirtd.service --replace /bin/kill ${coreutils}/bin/kill
+    rm $out/lib/systemd/system/{virtlockd,virtlogd}.*
     wrapProgram $out/sbin/libvirtd \
-      --prefix PATH : ${iptables}/sbin:${iproute}/sbin:${pmutils}/bin
+      --prefix PATH : /run/libvirt/nix-emulators:${makeBinPath [ iptables iproute pmutils numad numactl ]}
   '';
 
   enableParallelBuilding = true;
 
   NIX_CFLAGS_COMPILE = "-fno-stack-protector";
 
-  meta = with stdenv.lib; {
+  meta = {
     homepage = http://libvirt.org/;
     repositories.git = git://libvirt.org/libvirt.git;
     description = ''
@@ -62,6 +104,7 @@ stdenv.mkDerivation rec {
       versions of Linux (and other OSes)
     '';
     license = licenses.lgpl2Plus;
-    platforms = platforms.linux;
+    platforms = platforms.unix;
+    maintainers = with maintainers; [ fpletz ];
   };
 }

@@ -1,39 +1,28 @@
-{ stdenv, fetchurl, pkgconfig, ncurses, systemd }:
+{ lib, stdenv, fetchurl, ncurses }:
 
 stdenv.mkDerivation rec {
-  name = "procps-ng-3.3.10";
+  name = "procps-${version}";
+  version = "3.3.12";
 
   src = fetchurl {
-    url = "mirror://sourceforge/procps-ng/${name}.tar.xz";
-    sha256 = "013z4rzy3p5m1zp6mmynpblv0c6zlcn91pw4k2vymz2djyc6ybm0";
+    url = "mirror://sourceforge/procps-ng/procps-ng-${version}.tar.xz";
+    sha256 = "1m57w6jmry84njd5sgk5afycbglql0al80grx027kwqqcfw5mmkf";
   };
 
-  buildInputs = [ pkgconfig ncurses systemd ];
+  buildInputs = [ ncurses ];
 
   makeFlags = "usrbin_execdir=$(out)/bin";
 
   enableParallelBuilding = true;
 
-  crossAttrs = {
-    CC = stdenv.cross.config + "-gcc";
-  };
-
   # Too red
-  configureFlags = [
-    "--disable-modern-top"
-    "--enable-watch8bit"
-    "--with-systemd"
-    "--enable-skill"
-    "--enable-oomem"
-    "--enable-sigwinch"
-  ];
+  configureFlags = [ "--disable-modern-top" ];
 
-  meta = with stdenv.lib; {
-    homepage = http://sourceforge.net/projects/procps-ng/;
+  meta = {
+    homepage = https://sourceforge.net/projects/procps-ng/;
     description = "Utilities that give information about processes using the /proc filesystem";
     priority = 10; # less than coreutils, which also provides "kill" and "uptime"
-    maintainers = with maintainers; [ wkennington ];
-    license = licenses.gpl2;
-    platforms = platforms.linux;
+    license = lib.licenses.gpl2;
+    platforms = lib.platforms.linux ++ lib.platforms.cygwin;
   };
 }

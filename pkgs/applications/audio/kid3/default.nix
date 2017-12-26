@@ -1,8 +1,8 @@
 { stdenv, fetchurl
-, pkgconfig, cmake, perl, ffmpeg
+, pkgconfig, cmake
 , docbook_xml_dtd_45, docbook_xsl, libxslt
-, phonon, automoc4, chromaprint, id3lib
-, taglib, mp4v2, flac, libogg, libvorbis
+, python, ffmpeg, mp4v2, flac, libogg, libvorbis
+, phonon, automoc4, chromaprint, id3lib, taglib
 , qt, zlib, readline
 , makeWrapper
 }:
@@ -10,19 +10,19 @@
 stdenv.mkDerivation rec {
 
   name = "kid3-${version}";
-  version = "3.1.2";
+  version = "3.4.2";
 
   src = fetchurl {
-    url = "http://downloads.sourceforge.net/project/kid3/kid3/${version}/${name}.tar.gz";
-    sha256 = "0ik2bxg2im7nwcgi85g2dj148n80mfhks20rsxnzazl7afk9fl08";
+    url = "mirror://sourceforge/project/kid3/kid3/${version}/${name}.tar.gz";
+    sha256 = "0gka4na583015jyqva18g85q7vnkjdk0iji2jp88di3kpvqhf1sw";
   };
 
   buildInputs = with stdenv.lib;
-  [ pkgconfig cmake perl ffmpeg docbook_xml_dtd_45 docbook_xsl libxslt
+  [ pkgconfig cmake python ffmpeg docbook_xml_dtd_45 docbook_xsl libxslt
     phonon automoc4 chromaprint id3lib taglib mp4v2 flac libogg libvorbis
     qt zlib readline makeWrapper ];
 
-  cmakeFlags = [ "-DCMAKE_BUILD_TYPE=Release" "-DWITH_APPS=Qt;CLI" ];
+  cmakeFlags = [ "-DWITH_APPS=Qt;CLI" ];
   NIX_LDFLAGS = "-lm -lpthread";
 
   preConfigure = ''
@@ -32,6 +32,8 @@ stdenv.mkDerivation rec {
   postInstall = ''
     wrapProgram $out/bin/kid3-qt --prefix QT_PLUGIN_PATH : $out/lib/qt4/plugins
   '';
+
+  enableParallelBuilding = true;
 
   meta = with stdenv.lib; {
     description = "A simple and powerful audio tag editor";
@@ -68,7 +70,7 @@ stdenv.mkDerivation rec {
     homepage = http://kid3.sourceforge.net/;
     license = licenses.lgpl2Plus;
     maintainers = [ maintainers.AndersonTorres ];
+    platforms = platforms.linux;
   };
 }
-
-# TODO: Qt5 support
+# TODO: Qt5 support - not so urgent!

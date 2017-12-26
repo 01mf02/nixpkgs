@@ -1,13 +1,13 @@
 
-{ stdenv, wayland, xorgserver, xkbcomp, xkeyboard_config, epoxy, libxslt, libunwind, makeWrapper }:
+{ stdenv, wayland, wayland-protocols, xorgserver, xkbcomp, xkeyboard_config, epoxy, libxslt, libunwind, makeWrapper }:
 
 with stdenv.lib;
 
 overrideDerivation xorgserver (oldAttrs: {
 
   name = "xwayland-${xorgserver.version}";
-  propagatedNativeBuildInputs = oldAttrs.propagatedNativeBuildInputs
-    ++ [wayland epoxy libxslt makeWrapper libunwind];
+  propagatedBuildInputs = oldAttrs.propagatedBuildInputs
+    ++ [wayland wayland-protocols epoxy libxslt makeWrapper libunwind];
   configureFlags = [
     "--disable-docs"
     "--disable-devel-docs"
@@ -17,15 +17,15 @@ overrideDerivation xorgserver (oldAttrs: {
     "--disable-xnest"
     "--disable-xquartz"
     "--disable-xwin"
+    "--enable-glamor"
     "--with-default-font-path="
     "--with-xkb-bin-directory=${xkbcomp}/bin"
     "--with-xkb-path=${xkeyboard_config}/etc/X11/xkb"
-    "--with-xkb-output=$out/share/X11/xkb/compiled"
+    "--with-xkb-output=$(out)/share/X11/xkb/compiled"
   ];
 
   postInstall = ''
     rm -fr $out/share/X11/xkb/compiled
-    ln -s /var/tmp $out/share/X11/xkb/compiled
   '';
 
 }) // {

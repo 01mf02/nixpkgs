@@ -2,22 +2,22 @@
 
 stdenv.mkDerivation rec {
   name = "git-extras-${version}";
-  version = "2.2.0";
+  version = "4.4.0";
 
   src = fetchurl {
     url = "https://github.com/tj/git-extras/archive/${version}.tar.gz";
-    sha256 = "0qwgaj0r9lsmwricpnma9rm7llfrcqarcfk5iq3ilxkns8a334va";
+    sha256 = "0vb8syyr5nbvmkj5g4rb1p8rqxb2hyl25gbyf4rd0b972d7iihhn";
   };
 
-  phases = [ "unpackPhase" "installPhase" ];
+  dontBuild = true;
 
-  makeFlags = "DESTDIR=$(out) PREFIX=";
+  installFlags = [ "DESTDIR=$(out) PREFIX=" ];
 
   meta = with stdenv.lib; {
     homepage = https://github.com/tj/git-extras;
     description = "GIT utilities -- repo summary, repl, changelog population, author commit percentages and more";
     license = licenses.mit;
     platforms = platforms.all;
-    maintainers = [ maintainers.spwhitt ];
+    maintainers = [ maintainers.spwhitt maintainers.cko ];
   };
 }

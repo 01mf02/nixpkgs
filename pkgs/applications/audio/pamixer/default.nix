@@ -3,11 +3,11 @@
 stdenv.mkDerivation rec {
 
   name = "pamixer-${version}";
-  version = "1.2.1";
+  version = "1.3";
 
   src = fetchurl {
     url = "https://github.com/cdemoulins/pamixer/archive/${version}.tar.gz";
-    sha256 = "1ad6b46hh02hs1978pgihrm2bnq4z2v0imrfm3wy74xdkr6xjxy4";
+    sha256 = "091676ww4jbf4jr728gjfk7fkd5nisy70mr6f3s1p7n05hjpmfjx";
   };
 
   buildInputs = [ boost libpulseaudio ];
@@ -30,7 +30,6 @@ stdenv.mkDerivation rec {
     '';
     homepage = https://github.com/cdemoulins/pamixer;
     license = licenses.gpl3;
-    maintainers = with maintainers; [ hiberno ];
     platforms = platforms.linux;
   };
 }

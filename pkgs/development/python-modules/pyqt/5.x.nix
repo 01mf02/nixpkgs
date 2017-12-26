@@ -1,30 +1,47 @@
-{ stdenv, fetchurl, python, pkgconfig, qt5, sip, pythonDBus, lndir, makeWrapper }:
+{ lib, fetchurl, pythonPackages, pkgconfig, makeWrapper, qmake
+, lndir, qtbase, qtsvg, qtwebkit, qtwebengine, dbus_libs
+, withWebSockets ? false, qtwebsockets
+, withConnectivity ? false, qtconnectivity
+}:
 
 let
-  version = "5.3";
-in stdenv.mkDerivation {
-  name = "PyQt-${version}";
+  pname = "PyQt";
+  version = "5.9.2";
 
-  meta = with stdenv.lib; {
+  inherit (pythonPackages) buildPythonPackage python dbus-python sip;
+in buildPythonPackage {
+  pname = pname;
+  version = version;
+  format = "other";
+  name = pname + "-" + version;
+
+  meta = with lib; {
     description = "Python bindings for Qt5";
     homepage    = http://www.riverbankcomputing.co.uk;
     license     = licenses.gpl3;
     platforms   = platforms.mesaPlatforms;
-    maintainers = with maintainers; [ sander iyzsong ];
+    maintainers = with maintainers; [ sander ];
   };
 
   src = fetchurl {
-    url = "mirror://sourceforge/pyqt/PyQt5/PyQt-${version}/PyQt-gpl-${version}.tar.gz";
-    sha256 = "0xc1cc68fi989rfybibimhhi3mqn3b93n0p3jdqznzabgilcb1m2";
+    url = "mirror://sourceforge/pyqt/PyQt5/PyQt-${version}/PyQt5_gpl-${version}.tar.gz";
+    sha256 = "15439gxari6azbfql20ksz8h4gv23k3kfyjyr89h2yy9k32xm461";
   };
 
-  buildInputs = [ python pkgconfig makeWrapper lndir qt5 ];
+  nativeBuildInputs = [ pkgconfig makeWrapper qmake ];
+
+  buildInputs = [
+    lndir qtbase qtsvg qtwebkit qtwebengine dbus_libs
+  ] ++ lib.optional withWebSockets qtwebsockets ++ lib.optional withConnectivity qtconnectivity;
 
   propagatedBuildInputs = [ sip ];
 
   configurePhase = ''
+    runHook preConfigure
+
     mkdir -p $out
-    lndir ${pythonDBus} $out
+    lndir ${dbus-python} $out
+    rm -rf "$out/nix-support"
 
     export PYTHONPATH=$PYTHONPATH:$out/lib/${python.libPrefix}/site-packages
 
@@ -34,12 +51,15 @@ in stdenv.mkDerivation {
 
     ${python.executable} configure.py  -w \
       --confirm-license \
-      --dbus=$out/include/dbus-1.0 \
+      --dbus=${dbus_libs.dev}/include/dbus-1.0 \
       --no-qml-plugin \
       --bindir=$out/bin \
-      --destdir=$out/lib/${python.libPrefix}/site-packages \
-      --sipdir=$out/share/sip \
+      --destdir=$out/${python.sitePackages} \
+      --stubsdir=$out/${python.sitePackages}/PyQt5 \
+      --sipdir=$out/share/sip/PyQt5 \
       --designer-plugindir=$out/plugins/designer
+
+    runHook postConfigure
   '';
 
   postInstall = ''

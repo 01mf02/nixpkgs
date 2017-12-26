@@ -1,33 +1,22 @@
 { stdenv, pkgconfig, fetchurl, itstool, intltool, libxml2, glib, gtk3
-, pango, gdk_pixbuf, atk, pep8, python, makeWrapper, gnome3
-, pygobject3, gobjectIntrospection, libwnck3 }:
+, python3Packages, wrapGAppsHook, gnome3, libwnck3 }:
 
 let
-  version = "${major}.9";
+  version = "${major}.13";
   major = "0.3";
-in
-
-stdenv.mkDerivation rec {
+in python3Packages.buildPythonApplication rec {
   name = "d-feet-${version}";
+  format = "other";
 
   src = fetchurl {
     url = "mirror://gnome/sources/d-feet/${major}/d-feet-${version}.tar.xz";
-    sha256 = "0lvrrbxkvw495jn4vj64r8vd3hng5v0lvagfzcbk5x1f3ky1gybd";
+    sha256 = "1md3lzs55sg04ds69dbginpxqvgg3qnf1lfx3vmsxph6bbd2y6ll";
   };
 
-  buildInputs = [
-    pkgconfig libxml2 itstool intltool glib gtk3 pep8 python
-    gnome3.defaultIconTheme
-    makeWrapper pygobject3 libwnck3
-  ];
+  nativeBuildInputs = [ pkgconfig itstool intltool wrapGAppsHook libxml2 ];
+  buildInputs = [ glib gtk3 gnome3.defaultIconTheme libwnck3 ];
 
-  preFixup =
-    ''
-      wrapProgram $out/bin/d-feet \
-        --prefix PYTHONPATH : "$(toPythonPath $out):$(toPythonPath ${pygobject3})" \
-        --prefix GI_TYPELIB_PATH : "$GI_TYPELIB_PATH" \
-        --prefix XDG_DATA_DIRS : "$XDG_ICON_DIRS:$out/share"
-    '';
+  propagatedBuildInputs = with python3Packages; [ pygobject3 pep8 ];
 
   meta = {
     description = "D-Feet is an easy to use D-Bus debugger";
@@ -39,6 +28,7 @@ stdenv.mkDerivation rec {
 
     homepage = https://wiki.gnome.org/action/show/Apps/DFeet;
     platforms = stdenv.lib.platforms.all;
+    license = stdenv.lib.licenses.gpl2;
     maintainers = with stdenv.lib.maintainers; [ ktosiek ];
   };
 }

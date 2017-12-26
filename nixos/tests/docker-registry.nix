@@ -1,13 +1,16 @@
 # This test runs docker-registry and check if it works
 
-import ./make-test.nix {
+import ./make-test.nix ({ pkgs, ...} : {
   name = "docker-registry";
+  meta = with pkgs.stdenv.lib.maintainers; {
+    maintainers = [ globin ];
+  };
 
   nodes = {
     registry = { config, pkgs, ... }: {
       services.dockerRegistry.enable = true;
       services.dockerRegistry.port = 8080;
-      services.dockerRegistry.host = "0.0.0.0";
+      services.dockerRegistry.listenAddress = "0.0.0.0";
       networking.firewall.allowedTCPPorts = [ 8080 ];
     };
 
@@ -37,4 +40,4 @@ import ./make-test.nix {
     $client2->succeed("docker pull registry:8080/scratch");
     $client2->succeed("docker images | grep scratch");
   '';
-}
+})

@@ -1,24 +1,28 @@
-{stdenv, fetchgit, autoreconfHook, pkgconfig, pcre, zlib, lzma}:
+{stdenv, fetchFromGitHub, autoreconfHook, pkgconfig, pcre, zlib, lzma}:
 
-let release = "0.29.1"; in
-stdenv.mkDerivation {
-  name = "silver-searcher-${release}";
+stdenv.mkDerivation rec {
+  name = "silver-searcher-${version}";
+  version = "2.1.0";
 
-  src = fetchgit {
-    url = "https://github.com/ggreer/the_silver_searcher.git";
-    rev = "refs/tags/${release}";
-    sha256 = "05508c2714d356464a0de6f41a6a8408ccd861b967e968302c4b72feade89581";
+  src = fetchFromGitHub {
+    owner = "ggreer";
+    repo = "the_silver_searcher";
+    rev = "${version}";
+    sha256 = "0wcw4kyivb10m9b173183jrj46a0gisd35yqxi1mr9hw5l5dhkpa";
   };
+
+  patches = [ ./bash-completion.patch ];
 
   NIX_LDFLAGS = stdenv.lib.optionalString stdenv.isLinux "-lgcc_s";
 
-  buildInputs = [ autoreconfHook pkgconfig pcre zlib lzma ];
+  nativeBuildInputs = [ autoreconfHook pkgconfig ];
+  buildInputs = [ pcre zlib lzma ];
 
-  meta = {
+  meta = with stdenv.lib; {
     homepage = https://github.com/ggreer/the_silver_searcher/;
     description = "A code-searching tool similar to ack, but faster";
-    maintainers = [ stdenv.lib.maintainers.madjar ];
-    platforms = stdenv.lib.platforms.all;
-    license = stdenv.lib.licenses.asl20;
+    maintainers = with maintainers; [ madjar jgeerds ];
+    platforms = platforms.all;
+    license = licenses.asl20;
   };
 }

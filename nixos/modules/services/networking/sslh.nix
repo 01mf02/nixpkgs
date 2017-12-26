@@ -5,7 +5,7 @@ with lib;
 let
   cfg = config.services.sslh;
   configFile = pkgs.writeText "sslh.conf" ''
-    verbose: ${if cfg.verbose then "true" else "false"};
+    verbose: ${boolToString cfg.verbose};
     foreground: true;
     inetd: false;
     numeric: false;
@@ -16,7 +16,7 @@ let
 
     listen:
     (
-      { host: "${cfg.host}"; port: "${toString cfg.port}"; }
+      { host: "${cfg.listenAddress}"; port: "${toString cfg.port}"; }
     );
 
     ${cfg.appendConfig}
@@ -56,7 +56,7 @@ in
         description = "PID file path for sslh daemon.";
       };
 
-      host = mkOption {
+      listenAddress = mkOption {
         type = types.str;
         default = config.networking.hostName;
         description = "Listening hostname.";

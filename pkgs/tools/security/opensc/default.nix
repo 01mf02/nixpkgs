@@ -1,27 +1,25 @@
 { stdenv, fetchFromGitHub, autoreconfHook, pkgconfig, zlib, readline, openssl
 , libiconv, pcsclite, libassuan, libXt
 , docbook_xsl, libxslt, docbook_xml_dtd_412
+, Carbon
 }:
 
 stdenv.mkDerivation rec {
   name = "opensc-${version}";
-  version = "0.14.0";
+  version = "0.17.0";
 
   src = fetchFromGitHub {
     owner = "OpenSC";
     repo = "OpenSC";
     rev = version;
-    sha256 = "02q3rndcfd7lga1ph0xcl556rgigzpp9bpwqyn42rfbx8lll7gzv";
+    sha256 = "1mgcf698zhpqzamd52547scdws7mhdva377kc3chpr455n0mw8g0";
   };
 
-  postPatch = ''
-    sed -i 's,$(DESTDIR),$(out),g' etc/Makefile.am
-  '';
-
+  nativeBuildInputs = [ pkgconfig ];
   buildInputs = [
-    autoreconfHook pkgconfig zlib readline openssl pcsclite libassuan
+    autoreconfHook zlib readline openssl pcsclite libassuan
     libXt libxslt libiconv docbook_xml_dtd_412
-  ];
+  ] ++ stdenv.lib.optional stdenv.isDarwin Carbon;
 
   configureFlags = [
     "--enable-zlib"
@@ -35,6 +33,10 @@ stdenv.mkDerivation rec {
     "--sysconfdir=/etc"
     "--with-xsl-stylesheetsdir=${docbook_xsl}/xml/xsl/docbook"
     "--with-pcsc-provider=${pcsclite}/lib/libpcsclite.so"
+  ];
+
+  installFlags = [
+    "sysconfdir=$(out)/etc"
   ];
 
   meta = with stdenv.lib; {

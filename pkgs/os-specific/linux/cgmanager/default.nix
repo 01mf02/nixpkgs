@@ -1,34 +1,25 @@
-{ stdenv, fetchurl, pkgconfig, libnih, dbus }:
+{ stdenv, fetchurl, pkgconfig, libnih, dbus, pam }:
 
 stdenv.mkDerivation rec {
-  name = "cgmanager-0.36";
+  name = "cgmanager-0.41";
 
   src = fetchurl {
     url = "https://linuxcontainers.org/downloads/cgmanager/${name}.tar.gz";
-    sha256 = "039azd4ghpmiccd95ki8fna321kccapff00rib6hrdgg600pyw7l";
+    sha256 = "0n5l4g78ifvyfnj8x9xz06mqn4y8j73sgg4xsbak7hiszfz5bc99";
   };
 
-  buildInputs = [ pkgconfig libnih dbus ];
+  nativeBuildInputs = [ pkgconfig ];
+  buildInputs = [ libnih dbus pam ];
 
   configureFlags = [
     "--with-init-script=systemd"
-    "--sysconfdir=/etc/"
+    "--sysconfdir=/etc"
     "--localstatedir=/var"
   ];
 
-  installFlags = [ "DESTDIR=\${out}" ];
-
-  postInstall = ''
-    mv $out/$out/* $out
-    DIR=$out/$out
-    while rmdir $DIR 2>/dev/null; do
-      DIR="$(dirname "$DIR")"
-    done
-  '';
-
   meta = with stdenv.lib; {
     homepage = https://linuxcontainers.org/cgmanager/introduction/;
-    description = "a central privileged daemon that manages all your cgroups";
+    description = "A central privileged daemon that manages all your cgroups";
     license = licenses.lgpl21;
     platforms = platforms.linux;
     maintainers = with maintainers; [ wkennington ];

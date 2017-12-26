@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 
 <xsl:stylesheet version="1.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
-  xmlns:sdk="http://schemas.android.com/sdk/android/repository/10">
+  xmlns:sdk="http://schemas.android.com/sdk/android/repository/11">
 
   <xsl:param name="os" />
   <xsl:output omit-xml-declaration="yes" indent="no" />
@@ -13,7 +13,7 @@
         <xsl:value-of select="$raw-url"/>
       </xsl:when>
       <xsl:otherwise>
-        <xsl:text>https://dl-ssl.google.com/android/repository/</xsl:text>
+        <xsl:text>https://dl.google.com/android/repository/</xsl:text>
         <xsl:value-of select="$raw-url"/>
       </xsl:otherwise>
     </xsl:choose>
@@ -36,7 +36,7 @@ let
   });
 in
 {
-    <xsl:for-each select="sdk:platform">
+    <xsl:for-each select="sdk:platform"><xsl:sort select="sdk:api-level" data-type="number"/>
   platform_<xsl:value-of select="sdk:api-level" /> = buildPlatform {
     name = "android-platform-<xsl:value-of select="sdk:version" />";
     src = fetchurl {
@@ -45,7 +45,7 @@ in
     };
     meta = {
       description = "<xsl:value-of select="sdk:description" />";
-<xsl:for-each select="sdk:desc-url">      url = <xsl:value-of select="." />;</xsl:for-each>
+<xsl:for-each select="sdk:desc-url">      homepage = <xsl:value-of select="." />;</xsl:for-each>
     };
   };
 </xsl:for-each>

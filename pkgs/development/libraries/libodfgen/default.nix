@@ -3,19 +3,20 @@ let
   s = # Generated upstream information
   rec {
     baseName="libodfgen";
-    version="0.1.3";
+    version="0.1.6";
     name="${baseName}-${version}";
-    hash="1flfh1i4r116aqdlqpgpmyzpcylwba48l7mddj25a2cwgsc9v86k";
-    url="mirror://sourceforge/project/libwpd/libodfgen/libodfgen-0.1.3/libodfgen-0.1.3.tar.xz";
-    sha256="1flfh1i4r116aqdlqpgpmyzpcylwba48l7mddj25a2cwgsc9v86k";
+    hash="1sdr42f0bigip14zhs51m0zdwwzzl1mwmk882l4khpph8jmi1ch3";
+    url="mirror://sourceforge/project/libwpd/libodfgen/libodfgen-0.1.6/libodfgen-0.1.6.tar.xz";
+    sha256="1sdr42f0bigip14zhs51m0zdwwzzl1mwmk882l4khpph8jmi1ch3";
   };
+  nativeBuildInputs = [ pkgconfig ];
   buildInputs = [
-    boost pkgconfig cppunit zlib libwpg libwpd librevenge
+    boost cppunit zlib libwpg libwpd librevenge
   ];
 in
 stdenv.mkDerivation {
   inherit (s) name version;
-  inherit buildInputs;
+  inherit nativeBuildInputs buildInputs;
   src = fetchurl {
     inherit (s) url sha256;
   };

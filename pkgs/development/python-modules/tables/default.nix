@@ -1,26 +1,27 @@
 { stdenv, fetchurl, python, buildPythonPackage
-, cython, bzip2, lzo, numpy, numexpr, hdf5 }:
+, cython, bzip2, lzo, numpy, numexpr, hdf5, six, c-blosc }:
 
 buildPythonPackage rec {
-  version = "3.1.1";
-  name = "tables-${version}";
+  version = "3.4.2";
+  pname = "tables";
+  name = "${pname}-${version}";
 
   src = fetchurl {
-    url = "mirror://sourceforge/pytables/${name}.tar.gz";
-    sha256 = "18rdzv9xwiapb5c8y47rk2fi3fdm2dpjf68wfycma67ifrih7f9r";
+    url = "mirror://pypi/t/tables/${name}.tar.gz";
+    sha256 = "fdbbea4edb6bad0ac0e53fc7bc6970e78e12eef4944aa4146bcdcb573201676c";
   };
 
-  buildInputs = [ hdf5 cython bzip2 lzo ];
-  propagatedBuildInputs = [ numpy numexpr ];
+  buildInputs = [ hdf5 cython bzip2 lzo c-blosc ];
+  propagatedBuildInputs = [ numpy numexpr six ];
 
   # The setup script complains about missing run-paths, but they are
   # actually set.
   setupPyBuildFlags =
     [ "--hdf5=${hdf5}"
       "--lzo=${lzo}"
-      "--bzip2=${bzip2}"
+      "--bzip2=${bzip2.dev}"
+      "--blosc=${c-blosc}"
     ];
-  setupPyInstallFlags = setupPyBuildFlags;
 
   # Run the test suite.
   # It requires the build path to be in the python search path.
@@ -51,7 +52,7 @@ buildPythonPackage rec {
 
   meta = {
     description = "Hierarchical datasets for Python";
-    homepage = "http://www.pytables.org/";
+    homepage = http://www.pytables.org/;
     license = stdenv.lib.licenses.bsd2;
   };
 }

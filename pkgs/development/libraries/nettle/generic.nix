@@ -9,15 +9,15 @@ stdenv.mkDerivation (rec {
 
   inherit src;
 
+  outputs = [ "out" "dev" ];
+  outputBin = "dev";
+
   buildInputs = [ gnum4 ];
   propagatedBuildInputs = [ gmp ];
 
   doCheck = (stdenv.system != "i686-cygwin" && !stdenv.isDarwin);
 
   enableParallelBuilding = true;
-
-  # It doesn't build otherwise
-  dontDisableStatic = true;
 
   patches = stdenv.lib.optional (stdenv.system == "i686-cygwin")
               ./cygwin.patch;
@@ -64,5 +64,5 @@ stdenv.lib.optionalAttrs stdenv.isSunOS {
   # /usr/include/mp.h from OpenSolaris.  See
   # <https://lists.gnu.org/archive/html/hydra-users/2012-08/msg00000.html>
   # for details.
-  configureFlags = [ "--with-include-path=${gmp}/include" ];
+  configureFlags = [ "--with-include-path=${gmp.dev}/include" ];
 })

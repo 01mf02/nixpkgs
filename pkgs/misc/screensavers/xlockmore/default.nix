@@ -1,47 +1,38 @@
-{ stdenv, fetchurl, pam ? null, x11 }:
+{ stdenv, lib, fetchurl, pam ? null, autoreconfHook
+, libX11, libXext, libXinerama, libXdmcp, libXt }:
 
 stdenv.mkDerivation rec {
+  name = "xlockmore-5.55";
 
-  name = "xlockmore-5.46";
   src = fetchurl {
-    url = "http://www.tux.org/~bagleyd/xlock/${name}.tar.xz";
-    sha256 = "1ps0dmnh912x8mwns94y2607xk90rjxrjn5s1pkmmpjg5h9bxcrj";
+    url = "http://sillycycle.com/xlock/${name}.tar.xz";
+    sha256 = "1y3f76rq2nd10fgi2rx81aj6pijglmm661vjsxi05hpg35dzmwfl";
+    curlOpts = "--user-agent 'Mozilla/5.0'";
   };
 
   # Optionally, it can use GTK+.
-  buildInputs = [ pam x11 ];
+  buildInputs = [ pam libX11 libXext libXinerama libXdmcp libXt ];
+
+  nativeBuildInputs = [ autoreconfHook ];
 
   # Don't try to install `xlock' setuid. Password authentication works
   # fine via PAM without super user privileges.
   configureFlags =
-      " --with-crypt"
-    + " --enable-appdefaultdir=$out/share/X11/app-defaults"
-    + " --disable-setuid"
-    + " --without-editres"
-    + " --without-xpm"
-    + " --without-gltt"
-    + " --without-ttf"
-    + " --without-ftgl"
-    + " --without-freetype"
-    + " --without-opengl"
-    + " --without-mesa"
-    + " --without-dtsaver"
-    + " --without-ext"
-    + " --without-dpms"
-    + " --without-xinerama"
-    + " --without-rplay"
-    + " --without-nas"
-    + " --without-gtk2"
-    + " --without-gtk"
-    + (if pam != null then " --enable-pam --enable-bad-pam" else " --disable-pam");
+    [ "--disable-setuid"
+    ] ++ (lib.optional (pam != null) "--enable-pam");
 
-  preConfigure = ''
-    configureFlags+=" --enable-appdefaultdir=$out/share/X11/app-defaults"
-  '';
+  postPatch =
+    let makePath = p: lib.concatMapStringsSep " " (x: x + "/" + p) buildInputs;
+        inputs = "${makePath "lib"} ${makePath "include"}";
+    in ''
+      sed -i 's,\(for ac_dir in\),\1 ${inputs},' configure.ac
+      sed -i 's,/usr/,/no-such-dir/,g' configure.ac
+      configureFlags+=" --enable-appdefaultdir=$out/share/X11/app-defaults"
+    '';
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "Screen locker for the X Window System";
-    homepage = http://www.tux.org/~bagleyd/xlockmore.html;
+    homepage = http://sillycycle.com/xlockmore.html;
     license = licenses.gpl2;
     maintainers = with maintainers; [ pSub ];
     platforms = platforms.linux;
